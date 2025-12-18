@@ -1,0 +1,2895 @@
+{
+  "updatedAt": "2025-07-23T05:50:07.288Z",
+  "createdAt": "2025-07-21T07:15:26.019Z",
+  "id": "3nWZjdISXG3t5WFk",
+  "name": "03-Prod-FordDev-Printify",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4440,
+        -800
+      ],
+      "id": "6904016f-62d1-41a9-9455-fc1d56e79ddb",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const petKind = customerData.petkind || imageJson.petkind || \"Pet\";\n  const petGender = $input.first().json.petGender|| imageJson.petgender || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petGender: petGender,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4200,
+        -800
+      ],
+      "id": "3eba8c51-7c3a-4c42-84ec-37aec9095001",
+      "name": "Split_Product_Types"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.transformations.watermark }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n     {\n          \"namespace\": \"custom\",\n          \"key\": \"pet_kind\",                       \n          \"value\": \"{{ $json.petKind }}\",\n          \"type\": \"single_line_text_field\"\n     },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3960,
+        -800
+      ],
+      "id": "f603f77f-bc98-487f-bebd-36c73fe744bd",
+      "name": "Create_shopify_collection1",
+      "retryOnFail": false,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3440,
+        -800
+      ],
+      "id": "d2a025f2-b79c-401a-a7b2-404ea3d7a869",
+      "name": "Extract Collection Data"
+    },
+    {
+      "parameters": {
+        "amount": 12
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1620,
+        -840
+      ],
+      "id": "35b605a1-1a83-4829-bbae-cb1bd91aaa4e",
+      "name": "Wait",
+      "webhookId": "70610062-3bff-40de-b0ea-68970607d5db"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3140,
+        -800
+      ],
+      "id": "28968e5c-2ea8-413b-8b06-ec9f8d2aa702",
+      "name": "Loop Product Templates"
+    },
+    {
+      "parameters": {
+        "content": "LOOP 1: \nProduct creation",
+        "height": 660,
+        "width": 1840,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3220,
+        -1200
+      ],
+      "id": "de223f51-1ded-4da6-a0c9-13a8b708a126",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Map_Printify_Products\"\nconst items = $input.all();\nconst outputItems = [];\n\n// We will ONLY process the Matte Canvas which we know works.\nconst printifyProducts = {\n  \"other\": [\n    { \n      blueprint_id: 937, \n      print_provider_id: 105, \n      name: \"Matte Canvas\" \n    }\n  ]\n};\n\n// Get all the source data from the first node one time\nconst allSourceData = $('Split_Product_Types').all();\n\n// Process each collection item from the \"Create_shopify_collection1\" node\nitems.forEach(item => {\n  const collection = item.json.custom_collection;\n  \n  // Find the original data by matching the collection title\n  const sourceDataItem = allSourceData.find(\n    sourceItem => sourceItem.json.collection_name === collection.title\n  );\n\n  if (collection && sourceDataItem) {\n    const sourceData = sourceDataItem.json;\n    // const imageUrl = collection.image.src;\n    const imageUrl = \"https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1\";\n    \n    // Create \"other\" products (the Canvas)\n    printifyProducts.other.forEach(product => {\n      outputItems.push({\n        json: {\n          session_id: sourceData.session_id,\n          email: sourceData.email,\n          petname: sourceData.petname,\n          customer_name: sourceData.customer_name,\n          promptIndex: sourceData.promptIndex,\n          theme_name: sourceData.theme_name,\n          shopify_collection_id: collection.id,\n          product_type: \"other\",\n          image_url: imageUrl,\n          blueprint_id: product.blueprint_id,\n          print_provider_id: product.print_provider_id,\n          product_title: `${sourceData.theme_name} - ${product.name}`,\n          template_name: product.name\n        }\n      });\n    });\n  }\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3720,
+        -800
+      ],
+      "id": "5f4e85f3-4cc3-47f9-9f61-cd2af2d7216e",
+      "name": "Map_Printify_Products"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printify.com/v1/uploads/images.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_name\": \"{{ $json.petname }}_{{ $json.theme_name }}.jpg\",\n  \"url\": \"{{ $json.image_url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3020,
+        -1040
+      ],
+      "id": "220d3d19-4fb8-4ce4-aff7-e8211af4426b",
+      "name": "Upload_Image_To_Printify",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.blueprint_id }}/print_providers/{{ $json.print_provider_id }}/variants.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2540,
+        -820
+      ],
+      "id": "0e47ecf1-79b5-4243-be9f-be074ea8381f",
+      "name": "Get_Print_Provider_Variants",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ZwQuXy3mFoa7bh3H",
+          "name": "cloudinaryFurryPrints"
+        },
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// This code is designed for the SEQUENTIAL flow.\n\n// 1. Get the original data from the start of the loop\nconst productInfo = $('Loop Product Templates').item.json;\n\n// 2. Get the result of the image upload\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\n\n// 3. Get the result of the variants API call (this is the direct input)\nconst providerVariantsResponse = $input.item.json;\n\n// --- Error Checking ---\nif (!productInfo || !productInfo.product_title) {\n  throw new Error(\"Could not find original product data (like product_title) from the loop.\");\n}\nif (!uploadedImage || !uploadedImage.id) {\n  throw new Error(\"Could not find a valid image ID from the upload step.\");\n}\nif (!providerVariantsResponse || !providerVariantsResponse.variants) {\n  throw new Error(\"Could not find a valid variants array from the API call.\");\n}\n\n// --- Payload Assembly ---\nconst variants = providerVariantsResponse.variants.map(variant => ({\n  id: variant.id,\n  price: 2999, // Price in cents, e.g., 2999 = $29.99\n  is_enabled: true\n}));\n\nconst all_variant_ids = variants.map(v => v.id);\n\nconst payload = {\n  \"title\": productInfo.product_title,\n  \"description\": `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}. High-quality print-on-demand product perfect for pet lovers.</p>`,\n  \"blueprint_id\": productInfo.blueprint_id,\n  \"print_provider_id\": productInfo.print_provider_id,\n  \"variants\": variants,\n  \"print_areas\": [\n    {\n      \"variant_ids\": all_variant_ids,\n      \"placeholders\": [\n        {\n          \"position\": \"front\",\n          \"images\": [\n            {\n              \"id\": uploadedImage.id,\n              \"x\": 0.5,\n              \"y\": 0.5,\n              \"scale\": 1,\n              \"angle\": 0\n            }\n          ]\n        }\n      ]\n    }\n  ]\n};\n\n// Return the final data\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2300,
+        -840
+      ],
+      "id": "8cd569f2-e78d-4740-9035-d70a5014a67f",
+      "name": "Prepare_Printify_Product_Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.printifyPayload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2080,
+        -840
+      ],
+      "id": "7acaced7-1304-4b62-a3bf-33044e137454",
+      "name": "Create_Printify_Product",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('Create_Printify_Product').item.json.id }}/publish.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": true,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1860,
+        -840
+      ],
+      "id": "caaf24ab-c224-427d-9ce0-4529aa16fc7c",
+      "name": "Publish_Printify_Product",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2560,
+        -980
+      ],
+      "id": "8c70cb1c-525f-45da-b47b-2e27e201d634",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f46f174-b276-433a-a2a8-d11be21fa51f",
+              "name": "image_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2800,
+        -1040
+      ],
+      "id": "1dd030b4-dc38-429b-a223-b6eeabbb451f",
+      "name": "Set_Image_ID"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Split_Product_Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_Product_Types": {
+      "main": [
+        [
+          {
+            "node": "Create_shopify_collection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_shopify_collection1": {
+      "main": [
+        [
+          {
+            "node": "Map_Printify_Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Collection Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Product Templates": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Upload_Image_To_Printify",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get_Print_Provider_Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map_Printify_Products": {
+      "main": [
+        [
+          {
+            "node": "Extract Collection Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload_Image_To_Printify": {
+      "main": [
+        [
+          {
+            "node": "Set_Image_ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Print_Provider_Variants": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_Printify_Product_Payload": {
+      "main": [
+        [
+          {
+            "node": "Create_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "Publish_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare_Printify_Product_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Image_ID": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "customer_name": "Douglas Oliveira",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "petGender": "Male"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "bda64b94a7cfa6a68ae6a812ed801aee",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "ed8328e97b35aa171513cade102c3821367a8951",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 206531,
+          "type": "upload",
+          "etag": "bd65ce8627d814e4adaf81b2012a2eed",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "4cca1067d52fe3d00b72a20e9a637f8b",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "b5e47d80ddeb73e1f10163c1cf915d12d78396e9",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 217159,
+          "type": "upload",
+          "etag": "a0294dd9513746e378e0dbe0fe5829d2",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt2"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "4fcf3ebda9e6d4f84d23f3f555e03f2b",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "fc647afcb4dc930640a5078fb94c1144bb5ac9dd",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 265769,
+          "type": "upload",
+          "etag": "495480c04532db487ecaafba2c041b16",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt3"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "483161e0e3839f87788c5be83cf76cbc",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "ab247931e6825fc7d2f9b6f3b9b4fc3257628351",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 243442,
+          "type": "upload",
+          "etag": "b5b4667e8e06a73902f82e9b8eef9da5",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 4,
+          "theme_name": "Harry Petter",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt4",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt4"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "7e6e579b32d2f5954de852bbffb7781c",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "93bdb267a2844389344248f501a2c0bc8fdd2cf6",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 234896,
+          "type": "upload",
+          "etag": "30786055e824210f39c3cbc4d6743563",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt5"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "82513d4125e97368257c80e472a3c1b3",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "83a4f811bc6a3077f6e2186b5915ce86e040b477",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 238069,
+          "type": "upload",
+          "etag": "22cdcfc10c5548f8f4efc80c0667bf2f",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt6"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "e8f1fe6edd73ba53b541074e7f659ff2",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "c120ac80d2c1aea91de0a3074b022d9b5fa34732",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 189763,
+          "type": "upload",
+          "etag": "9aa2f54de1ca1da036adcd454587a670",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 7,
+          "theme_name": "Game of Thrones",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt7"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "a65daea10c8009c197ecf8e89479e8f8",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "97763c9f150a8c56f448b94b4704e187b1c0a6e9",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 252552,
+          "type": "upload",
+          "etag": "b85f4103568a41cb3fe5789924ad91c4",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 8,
+          "theme_name": "Morning Coffee",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt8"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "5bab6c25f3a19b9e2c97d0315e95ccaa",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "a387a0274de8a5dea63d81a79751960761eda197",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 403754,
+          "type": "upload",
+          "etag": "6958792e5b75fdf0ea9557c46974e1e7",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 9,
+          "theme_name": "Anime Style",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt9"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "a8002f8437c8b7c75553c95de4bf9fd2",
+          "public_id": "6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10",
+          "version": 1752606123,
+          "version_id": "b6eca5a6a435994fce4943f73637afb4",
+          "signature": "309f73bd3ac23f635041f07419b34f6187bfd49b",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-15T19:02:03Z",
+          "tags": [],
+          "bytes": 366346,
+          "type": "upload",
+          "etag": "ddcbde98911eeb41f1f76d689a643806",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10.jpg",
+          "asset_folder": "6876a52bd16692fc1b0f9a38",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6876a52bd16692fc1b0f9a38",
+          "email": "douglasdso81@gmail.com",
+          "petname": "Renato Cat",
+          "petKind": "Cat",
+          "customer_name": "Douglas Oliveira",
+          "promptIndex": 10,
+          "theme_name": "The Viking",
+          "customFilename": "6876a52bd16692fc1b0f9a38_prompt10",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1752606123/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt10"
+        }
+      }
+    ],
+    "Wait": [
+      {
+        "json": {
+          "id": "aef9ff2a-b05f-4820-8dc6-633b170a766b",
+          "storeId": "ce82562a-d6f5-47ab-8c59-632770661164",
+          "clientId": "ba3672c8-b8f9-44a7-99e3-2fe8638dfeca",
+          "externalId": null,
+          "title": "Cat Spa Day Deluxe - Premium Cotton Unisex Crewneck T-shirt",
+          "description": "<p><span>Wear your love proudly with our Premium Cotton Unisex T-Shirt, personalized with an endearing portrait of your beloved pet. Perfect as a heartfelt gift or a comfortable addition to your everyday wardrobe, this t-shirt combines style, comfort, and sentimentality effortlessly.</span></p><p><strong><br /></strong></p><p><strong>Exceptionally Soft and Comfortable</strong></p><p>Crafted from 100% Airlume combed and ring-spun cotton, this t-shirt is known for its luxuriously soft feel and sturdy construction, ensuring comfort all day long.</p><p><strong><br /></strong></p><p><strong>Tailored Unisex Fit</strong></p><p>Designed with side-seamed construction for a flattering, tailored unisex fit, this tee enhances your natural contours and provides maximum comfort for all body types.</p><p><strong><br /></strong></p><p><strong>Vibrant Personalization</strong></p><p>Specifically created to showcase vivid, high-quality prints, your pet’s charming image will look vibrant and crisp, turning your everyday attire into a special celebration.</p><p><strong><br /></strong></p><p><strong>Eco-Friendly Production</strong></p><p>Produced with environmentally conscious processes and materials, our t-shirt aligns with your commitment to sustainability and love for your furry friend.</p><p><br /></p><h4><span><i>Available in classic black or white, proudly display your pet’s portrait—because there's nothing better than having your furry friend close to your heart.</i></span></h4><ul>\n</ul>",
+          "previewUrl": null,
+          "externalPreviewUrl": "",
+          "externalThumbnailUrl": "",
+          "isReadyToPublish": false,
+          "publishedAt": null,
+          "createdAt": "2025-07-15T19:02:11+0000",
+          "updatedAt": "2025-07-15T19:02:11+0000",
+          "previewFileType": "webp",
+          "productVariantPreviewScene": "new/flatlay/front",
+          "variants": [],
+          "productVariantOptions": [
+            {
+              "name": "Color",
+              "values": [
+                "White",
+                "Black"
+              ]
+            },
+            {
+              "name": "Size",
+              "values": [
+                "S",
+                "M",
+                "L",
+                "XL",
+                "2XL"
+              ]
+            }
+          ],
+          "collectionsIds": [],
+          "tags": [
+            "6876a52bd16692fc1b0f9a38",
+            "Premium Cotton Unisex Crewneck T-shirt",
+            "Cat",
+            "Male",
+            "douglasdso81@gmail.com"
+          ],
+          "status": "created",
+          "productImages": [],
+          "metadata": [],
+          "handle": null,
+          "publishingErrorCode": null,
+          "publishingDetailsFlags": [],
+          "hasDraft": false,
+          "isFreeShipping": false,
+          "publishingErrorDetails": null,
+          "productVideos": [],
+          "templateName": "",
+          "parentTemplateId": "",
+          "priceUpdatedAt": null,
+          "productVariantAttributes": [
+            {
+              "name": "Color",
+              "values": [
+                {
+                  "value": "White",
+                  "keys": [
+                    {
+                      "name": "garmentcolor",
+                      "value": "white",
+                      "type": "physical"
+                    }
+                  ]
+                },
+                {
+                  "value": "Black",
+                  "keys": [
+                    {
+                      "name": "garmentcolor",
+                      "value": "black",
+                      "type": "physical"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Size",
+              "values": [
+                {
+                  "value": "S",
+                  "keys": [
+                    {
+                      "name": "garmentsize",
+                      "value": "S",
+                      "type": "physical"
+                    }
+                  ]
+                },
+                {
+                  "value": "M",
+                  "keys": [
+                    {
+                      "name": "garmentsize",
+                      "value": "M",
+                      "type": "physical"
+                    }
+                  ]
+                },
+                {
+                  "value": "L",
+                  "keys": [
+                    {
+                      "name": "garmentsize",
+                      "value": "L",
+                      "type": "physical"
+                    }
+                  ]
+                },
+                {
+                  "value": "XL",
+                  "keys": [
+                    {
+                      "name": "garmentsize",
+                      "value": "XL",
+                      "type": "physical"
+                    }
+                  ]
+                },
+                {
+                  "value": "2XL",
+                  "keys": [
+                    {
+                      "name": "garmentsize",
+                      "value": "2XL",
+                      "type": "physical"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "personalizationSettings": null,
+          "productType": "Custom Pet Artwork",
+          "vendor": "My Furry Prints",
+          "hasPersonalizableVariants": false,
+          "hasCustomSizeVariants": false,
+          "errors": [],
+          "publishingProgress": null
+        }
+      }
+    ],
+    "Create_shopify_collection1": [
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627132756,
+            "handle": "renato-cat-spadaydeluxe-1b0f9a38",
+            "title": "Renato Cat Spa Day Deluxe",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Spa Day Deluxe artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627132756",
+            "image": {
+              "created_at": "2025-07-15T20:02:05+01:00",
+              "alt": "Renato Cat Spa Day Deluxe Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt1.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627362132,
+            "handle": "renato-cat-midnightsnack-1b0f9a38",
+            "title": "Renato Cat Midnight Snack",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Midnight Snack artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627362132",
+            "image": {
+              "created_at": "2025-07-15T20:02:06+01:00",
+              "alt": "Renato Cat Midnight Snack Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt2.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627394900,
+            "handle": "renato-cat-victorianportrait-1b0f9a38",
+            "title": "Renato Cat Victorian Portrait",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Victorian Portrait artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627394900",
+            "image": {
+              "created_at": "2025-07-15T20:02:06+01:00",
+              "alt": "Renato Cat Victorian Portrait Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt3.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627231060,
+            "handle": "renato-cat-harrypetter-1b0f9a38",
+            "title": "Renato Cat Harry Petter",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Harry Petter artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627231060",
+            "image": {
+              "created_at": "2025-07-15T20:02:05+01:00",
+              "alt": "Renato Cat Harry Petter Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt4.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627329364,
+            "handle": "renato-cat-corporatepet-1b0f9a38",
+            "title": "Renato Cat Corporate Pet",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Corporate Pet artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627329364",
+            "image": {
+              "created_at": "2025-07-15T20:02:06+01:00",
+              "alt": "Renato Cat Corporate Pet Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt5.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627296596,
+            "handle": "renato-cat-homeyoga-1b0f9a38",
+            "title": "Renato Cat Home Yoga",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Home Yoga artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627296596",
+            "image": {
+              "created_at": "2025-07-15T20:02:06+01:00",
+              "alt": "Renato Cat Home Yoga Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt6.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627198292,
+            "handle": "renato-cat-gameofthrones-1b0f9a38",
+            "title": "Renato Cat Game of Thrones",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Game of Thrones artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627198292",
+            "image": {
+              "created_at": "2025-07-15T20:02:05+01:00",
+              "alt": "Renato Cat Game of Thrones Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt7.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627165524,
+            "handle": "renato-cat-morningcoffee-1b0f9a38",
+            "title": "Renato Cat Morning Coffee",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Morning Coffee artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627165524",
+            "image": {
+              "created_at": "2025-07-15T20:02:05+01:00",
+              "alt": "Renato Cat Morning Coffee Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt8.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627263828,
+            "handle": "renato-cat-animestyle-1b0f9a38",
+            "title": "Renato Cat Anime Style",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom Anime Style artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627263828",
+            "image": {
+              "created_at": "2025-07-15T20:02:05+01:00",
+              "alt": "Renato Cat Anime Style Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt9.jpg?v=1752606127"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684627427668,
+            "handle": "renato-cat-theviking-1b0f9a38",
+            "title": "Renato Cat The Viking",
+            "updated_at": "2025-07-15T20:02:07+01:00",
+            "body_html": "<p>Custom The Viking artwork featuring Renato Cat. High-quality, frame-worthy art available on various products.</p><p>Created for Douglas Oliveira (douglasdso81@gmail.com)</p>",
+            "published_at": "2025-07-15T20:02:04+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684627427668",
+            "image": {
+              "created_at": "2025-07-15T20:02:06+01:00",
+              "alt": "Renato Cat The Viking Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6876a52bd16692fc1b0f9a38_prompt10.jpg?v=1752606127"
+            }
+          }
+        }
+      }
+    ],
+    "Get_Print_Provider_Variants": [
+      {
+        "json": {
+          "id": 105,
+          "title": "Jondo",
+          "variants": [
+            {
+              "id": 82218,
+              "title": "12\" x 9\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "12\" x 9\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3600,
+                  "height": 2700
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82219,
+              "title": "14″ x 11″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "14″ x 11″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4200,
+                  "height": 3300
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82220,
+              "title": "16″ x 12″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "16″ x 12″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4800,
+                  "height": 3600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82221,
+              "title": "20\" x 16\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "20\" x 16\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 4800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82222,
+              "title": "24″ x 18″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "24″ x 18″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 5400
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82223,
+              "title": "30″ x 20″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "30″ x 20″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9000,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82224,
+              "title": "32\" x 24\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "32\" x 24\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9600,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82225,
+              "title": "36\" x 24\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "36\" x 24\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 10800,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82226,
+              "title": "40\" x 30\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "40\" x 30\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 12000,
+                  "height": 9000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82227,
+              "title": "48″ x 32″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "48″ x 32″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 14400,
+                  "height": 9600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82228,
+              "title": "9\" x 12\" (Vertical) / 0.75''",
+              "options": {
+                "size": "9\" x 12\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 2700,
+                  "height": 3600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82229,
+              "title": "11″ x 14″ (Vertical) / 0.75''",
+              "options": {
+                "size": "11″ x 14″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3300,
+                  "height": 4200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82230,
+              "title": "12″ x 16″ (Vertical) / 0.75''",
+              "options": {
+                "size": "12″ x 16″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3600,
+                  "height": 4800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82231,
+              "title": "16″ x 20″ (Vertical) / 0.75''",
+              "options": {
+                "size": "16″ x 20″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4800,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82232,
+              "title": "18″ x 24″ (Vertical) / 0.75''",
+              "options": {
+                "size": "18″ x 24″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 5400,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82233,
+              "title": "20″ x 30″ (Vertical) / 0.75''",
+              "options": {
+                "size": "20″ x 30″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 9000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82234,
+              "title": "24\" x 32\" (Vertical) / 0.75''",
+              "options": {
+                "size": "24\" x 32\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 9600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82235,
+              "title": "24\" x 36\" (Vertical) / 0.75''",
+              "options": {
+                "size": "24\" x 36\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 10800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82236,
+              "title": "30\" x 40\" (Vertical) / 0.75''",
+              "options": {
+                "size": "30\" x 40\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9000,
+                  "height": 12000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82237,
+              "title": "32″ x 48″ (Vertical) / 0.75''",
+              "options": {
+                "size": "32″ x 48″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9600,
+                  "height": 14400
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82238,
+              "title": "14\" x 14\" / 0.75''",
+              "options": {
+                "size": "14\" x 14\"",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4200,
+                  "height": 4200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82239,
+              "title": "24″ x 24″ / 0.75''",
+              "options": {
+                "size": "24″ x 24″",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 82240,
+              "title": "32\" x 32\" / 0.75''",
+              "options": {
+                "size": "32\" x 32\"",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9600,
+                  "height": 9600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 95209,
+              "title": "10\" x 8\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "10\" x 8\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3000,
+                  "height": 2400
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 95210,
+              "title": "18″ x 12″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "18″ x 12″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 5400,
+                  "height": 3600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 95211,
+              "title": "24″ x 16″ (Horizontal) / 0.75''",
+              "options": {
+                "size": "24″ x 16″ (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 4800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 95212,
+              "title": "8″ x 10″ (Vertical) / 0.75''",
+              "options": {
+                "size": "8″ x 10″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 2400,
+                  "height": 3000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 95213,
+              "title": "12″ x 18″ (Vertical) / 0.75''",
+              "options": {
+                "size": "12″ x 18″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3600,
+                  "height": 5400
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 95214,
+              "title": "16″ x 24″ (Vertical) / 0.75''",
+              "options": {
+                "size": "16″ x 24″ (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4800,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102196,
+              "title": "30\" x 24\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "30\" x 24\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9000,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102197,
+              "title": "36\" x 12\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "36\" x 12\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 10800,
+                  "height": 3600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102198,
+              "title": "48\" x 16\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "48\" x 16\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 14400,
+                  "height": 4800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102199,
+              "title": "12\" x 36\" (Vertical) / 0.75''",
+              "options": {
+                "size": "12\" x 36\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3600,
+                  "height": 10800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102200,
+              "title": "16\" x 48\" (Vertical) / 0.75''",
+              "options": {
+                "size": "16\" x 48\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4800,
+                  "height": 14400
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102201,
+              "title": "24\" x 30\" (Vertical) / 0.75''",
+              "options": {
+                "size": "24\" x 30\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 9000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102202,
+              "title": "6\" x 6\" / 0.75''",
+              "options": {
+                "size": "6\" x 6\"",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 1800,
+                  "height": 1800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102203,
+              "title": "10″ x 10″ / 0.75''",
+              "options": {
+                "size": "10″ x 10″",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3000,
+                  "height": 3000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102204,
+              "title": "12″ x 12″ / 0.75''",
+              "options": {
+                "size": "12″ x 12″",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3600,
+                  "height": 3600
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102205,
+              "title": "16\" x 16\" / 0.75''",
+              "options": {
+                "size": "16\" x 16\"",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4800,
+                  "height": 4800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102206,
+              "title": "24\" x 20\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "24\" x 20\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 7200,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102207,
+              "title": "20\" x 24\" (Vertical) / 0.75''",
+              "options": {
+                "size": "20\" x 24\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 7200
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102208,
+              "title": "20″ x 20″ / 0.75''",
+              "options": {
+                "size": "20″ x 20″",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102209,
+              "title": "60\" x 20\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "60\" x 20\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 18000,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102210,
+              "title": "20\" x 60\" (Vertical) / 0.75''",
+              "options": {
+                "size": "20\" x 60\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 18000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102211,
+              "title": "30″ x 30″ / 0.75''",
+              "options": {
+                "size": "30″ x 30″",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9000,
+                  "height": 9000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 102212,
+              "title": "36\" x 36\" / 0.75''",
+              "options": {
+                "size": "36\" x 36\"",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 10800,
+                  "height": 10800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114699,
+              "title": "20\" x 10\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "20\" x 10\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 3000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114700,
+              "title": "60\" x 30\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "60\" x 30\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 18000,
+                  "height": 9000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114701,
+              "title": "60\" x 40\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "60\" x 40\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 18000,
+                  "height": 12000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114702,
+              "title": "10\" x 20\" (Vertical) / 0.75''",
+              "options": {
+                "size": "10\" x 20\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 3000,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114703,
+              "title": "30\" x 60\" (Vertical) / 0.75''",
+              "options": {
+                "size": "30\" x 60\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9000,
+                  "height": 18000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114704,
+              "title": "40\" x 60\" (Vertical) / 0.75''",
+              "options": {
+                "size": "40\" x 60\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 12000,
+                  "height": 18000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114705,
+              "title": "30\" x 15\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "30\" x 15\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 9000,
+                  "height": 4500
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114706,
+              "title": "15\" x 30\" (Vertical) / 0.75''",
+              "options": {
+                "size": "15\" x 30\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 4500,
+                  "height": 9000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114707,
+              "title": "40\" x 20\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "40\" x 20\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 12000,
+                  "height": 6000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114708,
+              "title": "20\" x 40\" (Vertical) / 0.75''",
+              "options": {
+                "size": "20\" x 40\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 6000,
+                  "height": 12000
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114709,
+              "title": "48\" x 36\" (Horizontal) / 0.75''",
+              "options": {
+                "size": "48\" x 36\" (Horizontal)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 14400,
+                  "height": 10800
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            },
+            {
+              "id": 114710,
+              "title": "36\" x 48\" (Vertical) / 0.75''",
+              "options": {
+                "size": "36\" x 48\" (Vertical)",
+                "depth": "0.75''"
+              },
+              "placeholders": [
+                {
+                  "position": "front",
+                  "width": 10800,
+                  "height": 14400
+                }
+              ],
+              "decoration_methods": [
+                "digital-printing"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "versionId": "78a7716a-126e-46f2-9bdd-3791fd1e7265",
+  "activeVersionId": "78a7716a-126e-46f2-9bdd-3791fd1e7265",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-07-21T07:15:26.019Z",
+      "createdAt": "2025-07-21T07:15:26.019Z",
+      "role": "workflow:owner",
+      "workflowId": "3nWZjdISXG3t5WFk",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-07-16T05:47:05.580Z",
+      "createdAt": "2025-07-16T05:47:05.580Z",
+      "id": "hn6s8vvm70Sc55aF",
+      "name": "testing"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "78a7716a-126e-46f2-9bdd-3791fd1e7265",
+    "workflowId": "3nWZjdISXG3t5WFk",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -4440,
+          -800
+        ],
+        "id": "6904016f-62d1-41a9-9455-fc1d56e79ddb",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const petKind = customerData.petkind || imageJson.petkind || \"Pet\";\n  const petGender = $input.first().json.petGender|| imageJson.petgender || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petGender: petGender,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -4200,
+          -800
+        ],
+        "id": "3eba8c51-7c3a-4c42-84ec-37aec9095001",
+        "name": "Split_Product_Types"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.transformations.watermark }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n     {\n          \"namespace\": \"custom\",\n          \"key\": \"pet_kind\",                       \n          \"value\": \"{{ $json.petKind }}\",\n          \"type\": \"single_line_text_field\"\n     },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3960,
+          -800
+        ],
+        "id": "f603f77f-bc98-487f-bebd-36c73fe744bd",
+        "name": "Create_shopify_collection1",
+        "retryOnFail": false,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3440,
+          -800
+        ],
+        "id": "d2a025f2-b79c-401a-a7b2-404ea3d7a869",
+        "name": "Extract Collection Data"
+      },
+      {
+        "parameters": {
+          "amount": 12
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -1620,
+          -840
+        ],
+        "id": "35b605a1-1a83-4829-bbae-cb1bd91aaa4e",
+        "name": "Wait",
+        "webhookId": "70610062-3bff-40de-b0ea-68970607d5db"
+      },
+      {
+        "parameters": {
+          "options": {
+            "reset": false
+          }
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -3140,
+          -800
+        ],
+        "id": "28968e5c-2ea8-413b-8b06-ec9f8d2aa702",
+        "name": "Loop Product Templates"
+      },
+      {
+        "parameters": {
+          "content": "LOOP 1: \nProduct creation",
+          "height": 660,
+          "width": 1840,
+          "color": 4
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -3220,
+          -1200
+        ],
+        "id": "de223f51-1ded-4da6-a0c9-13a8b708a126",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Map_Printify_Products\"\nconst items = $input.all();\nconst outputItems = [];\n\n// We will ONLY process the Matte Canvas which we know works.\nconst printifyProducts = {\n  \"other\": [\n    { \n      blueprint_id: 937, \n      print_provider_id: 105, \n      name: \"Matte Canvas\" \n    }\n  ]\n};\n\n// Get all the source data from the first node one time\nconst allSourceData = $('Split_Product_Types').all();\n\n// Process each collection item from the \"Create_shopify_collection1\" node\nitems.forEach(item => {\n  const collection = item.json.custom_collection;\n  \n  // Find the original data by matching the collection title\n  const sourceDataItem = allSourceData.find(\n    sourceItem => sourceItem.json.collection_name === collection.title\n  );\n\n  if (collection && sourceDataItem) {\n    const sourceData = sourceDataItem.json;\n    // const imageUrl = collection.image.src;\n    const imageUrl = \"https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6876a52bd16692fc1b0f9a38/6876a52bd16692fc1b0f9a38_prompt1\";\n    \n    // Create \"other\" products (the Canvas)\n    printifyProducts.other.forEach(product => {\n      outputItems.push({\n        json: {\n          session_id: sourceData.session_id,\n          email: sourceData.email,\n          petname: sourceData.petname,\n          customer_name: sourceData.customer_name,\n          promptIndex: sourceData.promptIndex,\n          theme_name: sourceData.theme_name,\n          shopify_collection_id: collection.id,\n          product_type: \"other\",\n          image_url: imageUrl,\n          blueprint_id: product.blueprint_id,\n          print_provider_id: product.print_provider_id,\n          product_title: `${sourceData.theme_name} - ${product.name}`,\n          template_name: product.name\n        }\n      });\n    });\n  }\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3720,
+          -800
+        ],
+        "id": "5f4e85f3-4cc3-47f9-9f61-cd2af2d7216e",
+        "name": "Map_Printify_Products"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.printify.com/v1/uploads/images.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"file_name\": \"{{ $json.petname }}_{{ $json.theme_name }}.jpg\",\n  \"url\": \"{{ $json.image_url }}\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3020,
+          -1040
+        ],
+        "id": "220d3d19-4fb8-4ce4-aff7-e8211af4426b",
+        "name": "Upload_Image_To_Printify",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.blueprint_id }}/print_providers/{{ $json.print_provider_id }}/variants.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2540,
+          -820
+        ],
+        "id": "0e47ecf1-79b5-4243-be9f-be074ea8381f",
+        "name": "Get_Print_Provider_Variants",
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "ZwQuXy3mFoa7bh3H",
+            "name": "cloudinaryFurryPrints"
+          },
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// This code is designed for the SEQUENTIAL flow.\n\n// 1. Get the original data from the start of the loop\nconst productInfo = $('Loop Product Templates').item.json;\n\n// 2. Get the result of the image upload\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\n\n// 3. Get the result of the variants API call (this is the direct input)\nconst providerVariantsResponse = $input.item.json;\n\n// --- Error Checking ---\nif (!productInfo || !productInfo.product_title) {\n  throw new Error(\"Could not find original product data (like product_title) from the loop.\");\n}\nif (!uploadedImage || !uploadedImage.id) {\n  throw new Error(\"Could not find a valid image ID from the upload step.\");\n}\nif (!providerVariantsResponse || !providerVariantsResponse.variants) {\n  throw new Error(\"Could not find a valid variants array from the API call.\");\n}\n\n// --- Payload Assembly ---\nconst variants = providerVariantsResponse.variants.map(variant => ({\n  id: variant.id,\n  price: 2999, // Price in cents, e.g., 2999 = $29.99\n  is_enabled: true\n}));\n\nconst all_variant_ids = variants.map(v => v.id);\n\nconst payload = {\n  \"title\": productInfo.product_title,\n  \"description\": `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}. High-quality print-on-demand product perfect for pet lovers.</p>`,\n  \"blueprint_id\": productInfo.blueprint_id,\n  \"print_provider_id\": productInfo.print_provider_id,\n  \"variants\": variants,\n  \"print_areas\": [\n    {\n      \"variant_ids\": all_variant_ids,\n      \"placeholders\": [\n        {\n          \"position\": \"front\",\n          \"images\": [\n            {\n              \"id\": uploadedImage.id,\n              \"x\": 0.5,\n              \"y\": 0.5,\n              \"scale\": 1,\n              \"angle\": 0\n            }\n          ]\n        }\n      ]\n    }\n  ]\n};\n\n// Return the final data\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2300,
+          -840
+        ],
+        "id": "8cd569f2-e78d-4740-9035-d70a5014a67f",
+        "name": "Prepare_Printify_Product_Payload"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.printifyPayload }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2080,
+          -840
+        ],
+        "id": "7acaced7-1304-4b62-a3bf-33044e137454",
+        "name": "Create_Printify_Product",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('Create_Printify_Product').item.json.id }}/publish.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": true,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1860,
+          -840
+        ],
+        "id": "caaf24ab-c224-427d-9ce0-4529aa16fc7c",
+        "name": "Publish_Printify_Product",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineByPosition",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          -2560,
+          -980
+        ],
+        "id": "8c70cb1c-525f-45da-b47b-2e27e201d634",
+        "name": "Merge"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "6f46f174-b276-433a-a2a8-d11be21fa51f",
+                "name": "image_id",
+                "value": "={{ $json.id }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -2800,
+          -1040
+        ],
+        "id": "1dd030b4-dc38-429b-a223-b6eeabbb451f",
+        "name": "Set_Image_ID"
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Split_Product_Types",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split_Product_Types": {
+        "main": [
+          [
+            {
+              "node": "Create_shopify_collection1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_shopify_collection1": {
+        "main": [
+          [
+            {
+              "node": "Map_Printify_Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Collection Data": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Product Templates": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Upload_Image_To_Printify",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Get_Print_Provider_Variants",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Map_Printify_Products": {
+        "main": [
+          [
+            {
+              "node": "Extract Collection Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload_Image_To_Printify": {
+        "main": [
+          [
+            {
+              "node": "Set_Image_ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get_Print_Provider_Variants": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare_Printify_Product_Payload": {
+        "main": [
+          [
+            {
+              "node": "Create_Printify_Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_Printify_Product": {
+        "main": [
+          [
+            {
+              "node": "Publish_Printify_Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Publish_Printify_Product": {
+        "main": [
+          [
+            {
+              "node": "Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Prepare_Printify_Product_Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set_Image_ID": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-07-23T05:50:07.288Z",
+        "id": 71,
+        "workflowId": "3nWZjdISXG3t5WFk",
+        "versionId": "78a7716a-126e-46f2-9bdd-3791fd1e7265",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
