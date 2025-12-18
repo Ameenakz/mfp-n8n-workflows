@@ -1,0 +1,392 @@
+{
+  "updatedAt": "2025-12-18T05:58:59.234Z",
+  "createdAt": "2025-11-24T16:22:04.727Z",
+  "id": "57FzHVmSsFQJNFz9",
+  "name": "01-Hagrid-MTest",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/rpop/myfurryprints_queue_test",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        384
+      ],
+      "id": "fa6a630a-a125-401a-a927-e039e51235e4",
+      "name": "PopJobAndProcess",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "WORKFLOW 1\n\n\nThis workflow handles incoming data from users and adds them to a queue in redis for processing. It makes sure that only one job is processed at a time by checking a processing lock in Redis (via Upstash). When ready, it pops a job from the queue, locks the processing, and triggers another workflow to handle the actual job. It helps manage jobs smoothly without overloading the system.",
+        "height": 200,
+        "width": 640
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -48
+      ],
+      "id": "638f1f56-bc3c-41d3-82a3-a85f56114a55",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "012c1260-9c77-44aa-a153-2369b219ff9d",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1872,
+        224
+      ],
+      "id": "9324d7cc-de8e-471b-8e18-0437035bc29c",
+      "name": "Check if Job Exists"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        240
+      ],
+      "id": "ad23d953-8d0b-4a87-8df5-7488b9047f20",
+      "name": "Start Worker"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RyG7Wk8UC5E2L5zs",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/RyG7Wk8UC5E2L5zs",
+          "cachedResultName": "02-Picasso-MTest"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2448,
+        224
+      ],
+      "id": "36323358-0d17-4315-9bc1-bf5e733066b7",
+      "name": "Run Full Pipeline",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Fetch the security tokens from the very start of the workflow\n// We use .first() because the trigger only runs once per execution.\nconst startData = $('Start Worker').first().json;\n\n// 2. Map over the current input (the Redis job result)\n// and merge the tokens into it.\nreturn $input.all().map(item => {\n  return {\n    json: {\n      // Keep the existing Redis result\n      result: item.json.result,\n\n      // Inject our tokens\n      worker_token: startData.worker_token,\n      slot_id: startData.slot_id\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2144,
+        224
+      ],
+      "id": "5c6716b0-3c40-4fde-b01e-377d0718c349",
+      "name": "Inject Worker Tokens"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4286cbbd-d2d0-479e-868e-b33bf1655e7b",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        240
+      ],
+      "id": "1d1f669f-9709-4bdf-84d0-aad1b694ebe1",
+      "name": "Has Pre-Popped Data?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/set/job_start_time:{{ JSON.parse($json.result).submission_id }}/{{ new Date().toISOString() }}/EX/9000",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        640
+      ],
+      "id": "24c14fce-f129-4f97-9294-85b9f82f3937",
+      "name": "Log Job",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1552,
+        384
+      ],
+      "id": "30ce1a7d-4f44-42ed-a893-7ef1729d493c",
+      "name": "Merge"
+    }
+  ],
+  "connections": {
+    "PopJobAndProcess": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Job Exists": {
+      "main": [
+        [
+          {
+            "node": "Inject Worker Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Worker": {
+      "main": [
+        [
+          {
+            "node": "Has Pre-Popped Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inject Worker Tokens": {
+      "main": [
+        [
+          {
+            "node": "Run Full Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pre-Popped Data?": {
+      "main": [
+        [
+          {
+            "node": "Check if Job Exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PopJobAndProcess",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Job": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Check if Job Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "e3A2YjP2DNbrfl9C"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "Start Worker": [
+      {
+        "json": {
+          "worker_token": "692545b51a0203b2a3064bcf",
+          "slot_id": 1
+        }
+      }
+    ]
+  },
+  "versionId": "e31da192-24ac-464e-93a3-2af7c1dd035d",
+  "activeVersionId": null,
+  "versionCounter": 8,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-24T16:22:04.727Z",
+      "createdAt": "2025-11-24T16:22:04.727Z",
+      "role": "workflow:owner",
+      "workflowId": "57FzHVmSsFQJNFz9",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T05:58:40.812Z",
+      "createdAt": "2025-12-18T05:58:40.812Z",
+      "id": "kb8uOx6YBcqD3LbX",
+      "name": "production-test"
+    }
+  ],
+  "activeVersion": null
+}
