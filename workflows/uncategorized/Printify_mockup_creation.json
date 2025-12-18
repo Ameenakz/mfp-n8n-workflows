@@ -1,0 +1,616 @@
+{
+  "updatedAt": "2025-08-08T05:24:36.764Z",
+  "createdAt": "2025-08-06T04:23:25.696Z",
+  "id": "HNgS69wz1Qcni2sp",
+  "name": "Printify_mockup_creation",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.printifyPayload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        -528
+      ],
+      "id": "8fe93ee6-8988-47e8-be19-7023171e73c0",
+      "name": "Create_Printify_Product",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('mockup update').item.json.productId }}/publish.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('mockup update').item.json.publishPayload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        -528
+      ],
+      "id": "85f54fb2-890c-445b-bb5f-da3805113db0",
+      "name": "Publish_Printify_Product",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Prepare_Printify_Product_Payload\" (Final, Simplified Version)\n\n// --- Get all required data from previous nodes ---\nconst productInfo = $('Loop Product Templates').item.json;\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\nconst providerVariantsResponse = $input.item.json;\nconst sheetData = $('Get_Variant_Pricing_From_Sheet').all();\n\n// --- Process pricing and description data from the Google Sheet ---\nconst variantPriceMap = new Map();\nconst blueprintDescriptionMap = new Map();\n\nfor (const item of sheetData) {\n  const { variant_id, price, blueprint_id, product_description } = item.json;\n  if (variant_id && price !== undefined) {\n    variantPriceMap.set(String(variant_id), parseInt(price, 10));\n  }\n  if (blueprint_id && product_description && !blueprintDescriptionMap.has(String(blueprint_id))) {\n    blueprintDescriptionMap.set(String(blueprint_id), product_description);\n  }\n}\n\n// --- Prepare Variants and Description ---\nconst requiredVariantIds = productInfo.required_variant_ids;\nconst variants = providerVariantsResponse.variants\n  .filter(variant => requiredVariantIds.includes(variant.id))\n  .map(variant => ({\n    id: variant.id,\n    price: variantPriceMap.get(String(variant.id)) || 2999, // Fallback price\n    is_enabled: true\n  }));\n\nif (variants.length === 0) {\n  throw new Error(`Could not find any matching variants for the provided IDs: ${requiredVariantIds.join(', ')}`);\n}\nconst all_variant_ids = variants.map(v => v.id);\n\nlet description = blueprintDescriptionMap.get(String(productInfo.blueprint_id)) || `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}.</p>`;\nconst finalDescription = description.replace(/{{petname}}/g, productInfo.petname).replace(/{{theme_name}}/g, productInfo.theme_name);\n\n// --- Prepare Image Placement Data ---\nconst imagePlacementMap = {\n  12: { x: 0.5, y: 0.5045, scale: 0.8, angle: 0 },\n  635: { x: 0.2057, y: 0.4950, scale: 0.3111, angle: 0 },\n  421: { x: 0.5533, y: 0.5141, scale: 1, angle: 0 },\n  764: { x: 0.5, y: 0.5, scale: 1, angle: 0 },\n  937: { x: 0.5, y: 0.5, scale: 1, angle: 0 }\n};\nconst placement = imagePlacementMap[productInfo.blueprint_id] || { x: 0.5, y: 0.5, scale: 1, angle: 0 };\nconst placeholderPosition = providerVariantsResponse.variants?.[0]?.print_areas?.[0]?.placeholders?.[0]?.position || \"front\";\n\n\n// --- **THE FINAL, SIMPLIFIED MOCKUP LOGIC** ---\n\nconst mockupsFromTemplate = productInfo.mockups_from_template || [];\n\n// 1. Filter and format, using the 'position' value directly from the template.\nlet formattedMockups = mockupsFromTemplate\n  .filter(mockup => mockup.is_selected_for_publishing === true)\n  .map(mockup => ({\n    src: mockup.src,\n    variant_ids: mockup.variant_ids.filter(id => all_variant_ids.includes(id)),\n    position: mockup.position, // <-- Use the position directly from the template data.\n    is_default: mockup.is_default\n  }))\n  .filter(mockup => mockup.variant_ids.length > 0);\n\n// 2. Enforce the \"Single Default Mockup\" rule required by the API.\nlet isDefaultSet = false;\nformattedMockups = formattedMockups.map(mockup => {\n  if (isDefaultSet) {\n    return { ...mockup, is_default: false };\n  }\n  if (mockup.is_default) {\n    isDefaultSet = true;\n    return mockup;\n  }\n  return mockup;\n});\n\n// 3. Safety Check: If no default was found, make the first mockup the default.\nif (!isDefaultSet && formattedMockups.length > 0) {\n  formattedMockups[0].is_default = true;\n}\n\n// --- Assemble the Final Printify Payload ---\nconst payload = {\n  title: productInfo.product_title,\n  description: finalDescription,\n  blueprint_id: productInfo.blueprint_id,\n  print_provider_id: productInfo.print_provider_id,\n  variants,\n  print_areas: [{\n    variant_ids: all_variant_ids,\n    placeholders: [{\n      position: placeholderPosition,\n      images: [{ id: uploadedImage.id, ...placement }]\n    }]\n  }],\n  images: formattedMockups,\n  tags: [\n    $('When Executed by Another Workflow').first().json.email,\n    $('When Executed by Another Workflow').first().json.petGender,\n    $('When Executed by Another Workflow').first().json.petKind,\n    $('When Executed by Another Workflow').first().json.session_id,\n    productInfo.theme_name\n  ]\n};\n\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        -528
+      ],
+      "id": "033c48c3-1a9b-4093-8ada-a0ab6d76b50a",
+      "name": "Prepare_Printify_Product_Payload1"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('mockup update').item.json.productId }}.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('mockup update').item.json.updatePayload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -64,
+        -528
+      ],
+      "id": "4397a9c3-fcfc-4af7-9596-83c8a2b02d05",
+      "name": "update mockups",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// This node runs AFTER \"Create_Printify_Product\"\n\n// --- Get data from previous nodes ---\nconst createdProduct = $input.item.json;\nconst productId = createdProduct.id;\nconst shopId = createdProduct.shop_id;\n\n// Use the ORIGINAL payload from the first node as the source of truth for prices.\nconst originalPayload = $('Prepare_Printify_Product_Payload1').item.json.printifyPayload;\n\n// Create a Set of all variant IDs that Printify successfully enabled.\nconst enabledVariantIds = new Set(\n  createdProduct.variants\n    .filter(variant => variant.is_enabled === true)\n    .map(variant => variant.id)\n);\n\n// --- **CRITICAL FIX**: Reconstruct the Variants array for the update ---\n// The API will fail validation if we send back read-only fields like 'sku', 'cost', 'grams', etc.\n// We must build a clean array with ONLY the updatable fields.\nconst variantsForUpdate = originalPayload.variants\n  // Only include variants that were successfully enabled during creation.\n  .filter(v => enabledVariantIds.has(v.id))\n  // Map to the simple format the PUT endpoint expects.\n  .map(v => ({\n    id: v.id,\n    price: v.price,\n    is_enabled: v.is_enabled\n  }));\n\n// --- Prepare the Images array for the update ---\nlet finalMockups = originalPayload.images\n  .map(mockup => ({\n    src: mockup.src,\n    variant_ids: mockup.variant_ids.filter(id => enabledVariantIds.has(id)),\n    position: mockup.position,\n    is_default: mockup.is_default,\n    is_selected_for_publishing: true\n  }))\n  .filter(mockup => mockup.variant_ids.length > 0);\n\n// Re-enforce the \"Single Default Mockup\" Rule\nlet isDefaultSet = false;\nfinalMockups = finalMockups.map(mockup => {\n  if (isDefaultSet) return { ...mockup, is_default: false };\n  if (mockup.is_default) {\n    isDefaultSet = true;\n    return mockup;\n  }\n  return mockup;\n});\nif (!isDefaultSet && finalMockups.length > 0) {\n  finalMockups[0].is_default = true;\n}\n\n// --- ASSEMBLE A CLEAN PAYLOAD FOR THE 'PUT' REQUEST ---\n// This payload is now guaranteed to only contain fields and objects valid for an update.\nconst updatePayload = {\n  title: originalPayload.title,\n  description: originalPayload.description,\n  variants: variantsForUpdate, // Using our newly cleaned variants array\n  images: finalMockups\n};\n\n// --- Return all necessary data ---\nreturn {\n  json: {\n    productId: productId,\n    shopId: shopId,\n    updatePayload: updatePayload\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -528
+      ],
+      "id": "10d6e04b-eaec-4b8f-807a-f8adce6dd2fa",
+      "name": "mockup update"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        -528
+      ],
+      "id": "b3ab90e9-b0d9-4a3e-b41b-c697c1a0f357",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "content": "This node prepares the final product creation payload for Printify.\n\n🎯 Key parts included:\n   -Product title & description\n   -Blueprint ID & Print Provider\n   -Variant IDs + Prices\n   -Custom mockups\n   -Print area & image positioning \n\n❗ Current issue:\nEven though custom mockups are being included, they’re not showing up in Printify’s UI after publishing.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n🧩Note : The pinned data given in the node is the payload of one product",
+        "height": 624,
+        "width": 320,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        -816
+      ],
+      "id": "9a7da006-855b-4ce2-a9d3-9903de825d6c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "\n🔁APPROACH TRIED HERE\n\n1. Prepared the payload with the required mockups\n2. Created the product (mockups did not get updated !)\n3. Tried using the PUT endpoint in updating the mockups for the prepared product ",
+        "width": 416,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        -720
+      ],
+      "id": "9d9a08dd-1b9d-48b3-b569-5911dad43489",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "Create_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "mockup update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish_Printify_Product": {
+      "main": [
+        []
+      ]
+    },
+    "Prepare_Printify_Product_Payload1": {
+      "main": [
+        [
+          {
+            "node": "Create_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update mockups": {
+      "main": [
+        [
+          {
+            "node": "Publish_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mockup update": {
+      "main": [
+        [
+          {
+            "node": "update mockups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Prepare_Printify_Product_Payload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "Prepare_Printify_Product_Payload1": [
+      {
+        "json": {
+          "session_id": "6889bf031956663368046cf9",
+          "email": "ameena.k@gauger.in",
+          "petname": "Garry",
+          "customer_name": "Ameena K",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "shopify_collection_id": 685412581716,
+          "product_type": "clothing",
+          "image_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6889bf031956663368046cf9/6889bf031956663368046cf9_prompt2",
+          "blueprint_id": 12,
+          "print_provider_id": 331,
+          "product_title": "Midnight Snack - Premium Cotton Unisex T-shirt",
+          "template_name": "Premium Cotton Unisex T-shirt",
+          "required_variant_ids": [
+            18099,
+            18100,
+            18101,
+            18102,
+            18103,
+            18104,
+            18539,
+            18540,
+            18541,
+            18542,
+            18543,
+            18544
+          ],
+          "mockups_from_template": [
+            {
+              "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18542/92584/template-premium-cotton-unisex-t-shirt.jpg?camera_label=lifestyle",
+              "variant_ids": [
+                18539,
+                18540,
+                18541,
+                18542,
+                18543,
+                18544
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18542/102044/template-premium-cotton-unisex-t-shirt.jpg?camera_label=front-2",
+              "variant_ids": [
+                18539,
+                18540,
+                18541,
+                18542,
+                18543,
+                18544
+              ],
+              "position": "other",
+              "is_default": false,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18542/102050/template-premium-cotton-unisex-t-shirt.jpg?camera_label=size-chart",
+              "variant_ids": [
+                18539,
+                18540,
+                18541,
+                18542,
+                18543,
+                18544
+              ],
+              "position": "other",
+              "is_default": false,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18102/92584/template-premium-cotton-unisex-t-shirt.jpg?camera_label=lifestyle",
+              "variant_ids": [
+                18099,
+                18100,
+                18101,
+                18102,
+                18103,
+                18104
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18102/102044/template-premium-cotton-unisex-t-shirt.jpg?camera_label=front-2",
+              "variant_ids": [
+                18099,
+                18100,
+                18101,
+                18102,
+                18103,
+                18104
+              ],
+              "position": "other",
+              "is_default": false,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18102/102050/template-premium-cotton-unisex-t-shirt.jpg?camera_label=size-chart",
+              "variant_ids": [
+                18099,
+                18100,
+                18101,
+                18102,
+                18103,
+                18104
+              ],
+              "position": "other",
+              "is_default": false,
+              "is_selected_for_publishing": true,
+              "order": null
+            }
+          ],
+          "myNewField": 1,
+          "printifyPayload": {
+            "title": "Midnight Snack - Premium Cotton Unisex T-shirt",
+            "description": "<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased;\">Wear your love proudly with our Premium Cotton Unisex T-Shirt, personalized with an endearing portrait of your beloved pet. Perfect as a heartfelt gift or a comfortable addition to your everyday wardrobe, this t-shirt combines style, comfort, and sentimentality effortlessly.</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">&nbsp;</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">Exceptionally Soft and Comfortable</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\">Crafted from 100% Airlume combed and ring-spun cotton, this t-shirt is known for its luxuriously soft feel and sturdy construction, ensuring comfort all day long.</p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">&nbsp;</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">Tailored Unisex Fit</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\">Designed with side-seamed construction for a flattering, tailored unisex fit, this tee enhances your natural contours and provides maximum comfort for all body types.</p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">&nbsp;</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">Vibrant Personalization</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\">Specifically created to showcase vivid, high-quality prints, your pet&rsquo;s charming image will look vibrant and crisp, turning your everyday attire into a special celebration.</p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">&nbsp;</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-weight: bolder;\">Eco-Friendly Production</span></p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\">Produced with environmentally conscious processes and materials, our t-shirt aligns with your commitment to sustainability and love for your furry friend.</p>\n<p style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; margin: 0px; line-height: 20px; color: rgba(0, 0, 0, 0.87); font-size: 14px; letter-spacing: 0.24px; background-color: #ffffff;\">&nbsp;</p>\n<h4 style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; line-height: 1.28571em; margin: calc(-0.142857em + 2rem) 0px 1rem; padding: 0px; font-size: 1.07143rem; color: rgba(0, 0, 0, 0.87); letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased;\"><em style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased;\">Available in classic black or white, proudly display your pet&rsquo;s portrait&mdash;because there's nothing better than having your furry friend close to your heart.</em></span></h4>\n<p>&nbsp;</p>\n<p>&nbsp;</p>\n<table id=\"size-guide\" style=\"min-width: 360px;\">\n<thead>\n<tr>\n<th style=\"padding: 10px;\">&nbsp;</th>\n<th style=\"color: #000000; font-weight: 500; text-align: left; font-size: 15px; padding: 10px;\">XS</th>\n<th style=\"color: #000000; font-weight: 500; text-align: left; font-size: 15px; padding: 10px;\">S</th>\n<th style=\"color: #000000; font-weight: 500; text-align: left; font-size: 15px; padding: 10px;\">M</th>\n<th style=\"color: #000000; font-weight: 500; text-align: left; font-size: 15px; padding: 10px;\">L</th>\n<th style=\"color: #000000; font-weight: 500; text-align: left; font-size: 15px; padding: 10px;\">XL</th>\n<th style=\"color: #000000; font-weight: 500; text-align: left; font-size: 15px; padding: 10px;\">2XL</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">Width, in</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">16.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">18.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">20.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">22.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">24.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">26.00</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">Length, in</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">27.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">28.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">29.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">30.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">31.00</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">32.00</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">Sleeve length, in</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">8.60</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">8.90</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">9.20</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">9.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">9.70</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">10.00</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">Size tolerance, in</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">1.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">1.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">1.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">1.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">1.50</td>\n<td style=\"padding: 10px; color: #525252; font-size: 15px; border-top: 1px solid #ededed; word-break: break-word;\">1.50</td>\n</tr>\n</tbody>\n</table>\n<h4 style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; font-family: GelatoSans, sans-serif; line-height: 1.28571em; margin: calc(-0.142857em + 2rem) 0px 1rem; padding: 0px; font-size: 1.07143rem; color: rgba(0, 0, 0, 0.87); letter-spacing: 0.24px; background-color: #ffffff;\"><span style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased;\"><em style=\"box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased;\">&nbsp;</em></span></h4>",
+            "blueprint_id": 12,
+            "print_provider_id": 331,
+            "variants": [
+              {
+                "id": 18099,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18100,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18101,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18102,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18103,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18104,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18539,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18540,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18542,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18543,
+                "price": 2400,
+                "is_enabled": true
+              },
+              {
+                "id": 18544,
+                "price": 2400,
+                "is_enabled": true
+              }
+            ],
+            "print_areas": [
+              {
+                "variant_ids": [
+                  18099,
+                  18100,
+                  18101,
+                  18102,
+                  18103,
+                  18104,
+                  18539,
+                  18540,
+                  18542,
+                  18543,
+                  18544
+                ],
+                "placeholders": [
+                  {
+                    "position": "front",
+                    "images": [
+                      {
+                        "id": "6889bfb4cf96d3844f157767",
+                        "x": 0.5,
+                        "y": 0.5045,
+                        "scale": 0.8,
+                        "angle": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "images": [
+              {
+                "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18542/92584/template-premium-cotton-unisex-t-shirt.jpg?camera_label=lifestyle",
+                "variant_ids": [
+                  18539,
+                  18540,
+                  18542,
+                  18543,
+                  18544
+                ],
+                "position": "lifestyle",
+                "is_default": true
+              },
+              {
+                "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18542/102044/template-premium-cotton-unisex-t-shirt.jpg?camera_label=front-2",
+                "variant_ids": [
+                  18539,
+                  18540,
+                  18542,
+                  18543,
+                  18544
+                ],
+                "position": "front-2",
+                "is_default": false
+              },
+              {
+                "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18542/102050/template-premium-cotton-unisex-t-shirt.jpg?camera_label=size-chart",
+                "variant_ids": [
+                  18539,
+                  18540,
+                  18542,
+                  18543,
+                  18544
+                ],
+                "position": "size-chart",
+                "is_default": false
+              },
+              {
+                "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18102/92584/template-premium-cotton-unisex-t-shirt.jpg?camera_label=lifestyle",
+                "variant_ids": [
+                  18099,
+                  18100,
+                  18101,
+                  18102,
+                  18103,
+                  18104
+                ],
+                "position": "lifestyle",
+                "is_default": true
+              },
+              {
+                "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18102/102044/template-premium-cotton-unisex-t-shirt.jpg?camera_label=front-2",
+                "variant_ids": [
+                  18099,
+                  18100,
+                  18101,
+                  18102,
+                  18103,
+                  18104
+                ],
+                "position": "front-2",
+                "is_default": false
+              },
+              {
+                "src": "https://images.printify.com/mockup/6878c2d13ae7beeca4002753/18102/102050/template-premium-cotton-unisex-t-shirt.jpg?camera_label=size-chart",
+                "variant_ids": [
+                  18099,
+                  18100,
+                  18101,
+                  18102,
+                  18103,
+                  18104
+                ],
+                "position": "size-chart",
+                "is_default": false
+              }
+            ],
+            "tags": [
+              "ameena.k@gauger.in",
+              "Male",
+              "Dog",
+              "6889bf031956663368046cf9",
+              "Midnight Snack"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "9763736f-ae17-4106-b3e6-1827d1641f7b",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-08-06T04:23:25.696Z",
+      "createdAt": "2025-08-06T04:23:25.696Z",
+      "role": "workflow:owner",
+      "workflowId": "HNgS69wz1Qcni2sp",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-07-16T05:47:05.580Z",
+      "createdAt": "2025-07-16T05:47:05.580Z",
+      "id": "hn6s8vvm70Sc55aF",
+      "name": "testing"
+    },
+    {
+      "updatedAt": "2025-08-02T06:48:29.668Z",
+      "createdAt": "2025-08-02T06:48:29.668Z",
+      "id": "rQPIHwfxCaIKAvSj",
+      "name": "mockup"
+    }
+  ],
+  "activeVersion": null
+}
