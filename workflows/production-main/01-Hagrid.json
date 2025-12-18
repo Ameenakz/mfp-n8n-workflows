@@ -1,0 +1,577 @@
+{
+  "updatedAt": "2025-12-18T05:57:15.738Z",
+  "createdAt": "2025-11-18T10:03:26.693Z",
+  "id": "sbikCUZ8YSTSByDN",
+  "name": "01-Hagrid",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/rpop/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        368
+      ],
+      "id": "19942da2-4584-42d5-a2c2-ccce850994b5",
+      "name": "PopJobAndProcess",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "WORKFLOW 1\n\n\nThis workflow handles incoming data from users and adds them to a queue in redis for processing. It makes sure that only one job is processed at a time by checking a processing lock in Redis (via Upstash). When ready, it pops a job from the queue, locks the processing, and triggers another workflow to handle the actual job. It helps manage jobs smoothly without overloading the system.",
+        "height": 200,
+        "width": 640
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -48
+      ],
+      "id": "6ec187f4-e3ed-41dc-9b3a-08af1384b0dd",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "012c1260-9c77-44aa-a153-2369b219ff9d",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        240
+      ],
+      "id": "c2fb1ceb-c754-437f-9180-71c30f62f9d9",
+      "name": "Check if Job Exists"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        240
+      ],
+      "id": "94faa0ae-f8f7-4954-af52-f8c13ca3f0c7",
+      "name": "Start Worker"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "wTvvCQRkDWH4p2ep",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/wTvvCQRkDWH4p2ep",
+          "cachedResultName": "02-Picasso"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2240,
+        224
+      ],
+      "id": "a373ab0a-fa4b-460f-be79-9773b4cc8f45",
+      "name": "Run Full Pipeline",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Fetch the security tokens from the very start of the workflow\n// We use .first() because the trigger only runs once per execution.\nconst startData = $('Start Worker').first().json;\n\n// 2. Map over the current input (the Redis job result)\n// and merge the tokens into it.\nreturn $input.all().map(item => {\n  return {\n    json: {\n      // Keep the existing Redis result\n      result: item.json.result,\n\n      // Inject our tokens\n      worker_token: startData.worker_token,\n      slot_id: startData.slot_id\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        224
+      ],
+      "id": "181f26e2-080e-467b-bc97-1e28d8096fae",
+      "name": "Inject Worker Tokens"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4286cbbd-d2d0-479e-868e-b33bf1655e7b",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        240
+      ],
+      "id": "e0c3acf0-d400-455c-9a31-da15d92c99b7",
+      "name": "Has Pre-Popped Data?"
+    }
+  ],
+  "connections": {
+    "PopJobAndProcess": {
+      "main": [
+        [
+          {
+            "node": "Check if Job Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Job Exists": {
+      "main": [
+        [
+          {
+            "node": "Inject Worker Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Worker": {
+      "main": [
+        [
+          {
+            "node": "Has Pre-Popped Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inject Worker Tokens": {
+      "main": [
+        [
+          {
+            "node": "Run Full Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pre-Popped Data?": {
+      "main": [
+        [
+          {
+            "node": "Check if Job Exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PopJobAndProcess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "Start Worker": [
+      {
+        "json": {
+          "result": "{\"submission_id\":\"691ddeca382c5e01aa0750e4\",\"customer_data\":[{\"title\":\"Who is your furry friend ? \",\"description\":\"\",\"type\":\"choices\",\"key\":\"tjhn\",\"custom_key\":null,\"value\":\"Dog\"},{\"title\":\"What is your pet's sex?\",\"description\":null,\"type\":\"choices\",\"key\":\"70foo\",\"custom_key\":null,\"value\":\"Female\"},{\"title\":\"Your pet's name\",\"description\":\"\",\"type\":\"text\",\"key\":\"1pl93\",\"custom_key\":null,\"value\":\"Test3\"},{\"title\":\"Pet photos\",\"description\":\"Please upload 4 to 6 pictures of your pet\",\"type\":\"image\",\"key\":\"8objr\",\"custom_key\":null,\"value\":[{\"url\":\"https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-19/s883j40/Luna%20Face%205.jpeg?expires=1764170058&signature=d4041ec08bd14895f60429c058d7b14aa2a224181af5786e3c9cfa97a2da17fd\",\"name\":\"Luna Face 5.jpeg\",\"type\":\"image/jpeg\",\"size\":277134,\"width\":1500,\"height\":2000},{\"url\":\"https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-19/s673jwc/Luna%20Face%204.jpeg?expires=1764170058&signature=6a7bd23c5ff4f8cfae739db2e805eb3f0c053f7812b756f1411f9c8dfbbe0810\",\"name\":\"Luna Face 4.jpeg\",\"type\":\"image/jpeg\",\"size\":207024,\"width\":1500,\"height\":2000},{\"url\":\"https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-19/nv53j46/Luna%20Face%202.jpg?expires=1764170058&signature=f9a4e8a4f37541959d8471db5055218ed6c356386365e7a25700bb1102486b47\",\"name\":\"Luna Face 2.jpg\",\"type\":\"image/jpeg\",\"size\":833780,\"width\":3000,\"height\":4000},{\"url\":\"https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-19/nv63ju8/Luna%20Face%201.jpg?expires=1764170058&signature=cca95b7fb4d732436581eeababb066853865c02ffb23d22032cbd25296068bd2\",\"name\":\"Luna Face 1.jpg\",\"type\":\"image/jpeg\",\"size\":743979,\"width\":3000,\"height\":4000}]},{\"title\":\"First name\",\"description\":\"\",\"type\":\"text\",\"key\":\"84g9u\",\"custom_key\":null,\"value\":\"Daniel\"},{\"title\":\"Last name\",\"description\":\"\",\"type\":\"text\",\"key\":\"b6vtr\",\"custom_key\":null,\"value\":\"Suresh\"},{\"title\":\"Email\",\"description\":\"\",\"type\":\"email\",\"key\":\"aohp1\",\"custom_key\":null,\"value\":\"iamdanielsuresh@gmail.com\"},{\"title\":\"Phone (optional)\",\"description\":\"We'll text you when artwork is ready\",\"type\":\"phone\",\"key\":\"455ij\",\"custom_key\":null,\"value\":null},{\"title\":\"What is your phone model?\",\"description\":\"Used to show your pet’s artwork on a phone case\",\"type\":\"dropdown\",\"key\":\"7850r\",\"custom_key\":null,\"value\":\"iPhone 16 Pro Max\"}],\"timestamp\":\"2025-11-19T15:14:19.367Z\"}",
+          "slot_id": "1",
+          "worker_token": "691ddeca382c5e01aa0750e4"
+        }
+      }
+    ]
+  },
+  "versionId": "123f1eb2-6a52-45d3-840d-1d1927b6107d",
+  "activeVersionId": "123f1eb2-6a52-45d3-840d-1d1927b6107d",
+  "versionCounter": 8,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-18T10:03:26.693Z",
+      "createdAt": "2025-11-18T10:03:26.693Z",
+      "role": "workflow:owner",
+      "workflowId": "sbikCUZ8YSTSByDN",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T05:57:00.738Z",
+      "createdAt": "2025-12-18T05:57:00.738Z",
+      "id": "UKI0v1bk4iF3oZWB",
+      "name": "production-main"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2025-12-17T18:35:51.183Z",
+    "createdAt": "2025-12-01T08:13:57.774Z",
+    "versionId": "123f1eb2-6a52-45d3-840d-1d1927b6107d",
+    "workflowId": "sbikCUZ8YSTSByDN",
+    "nodes": [
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://honest-ghoul-37248.upstash.io/rpop/myfurryprints_queue",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1328,
+          368
+        ],
+        "id": "19942da2-4584-42d5-a2c2-ccce850994b5",
+        "name": "PopJobAndProcess",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "WORKFLOW 1\n\n\nThis workflow handles incoming data from users and adds them to a queue in redis for processing. It makes sure that only one job is processed at a time by checking a processing lock in Redis (via Upstash). When ready, it pops a job from the queue, locks the processing, and triggers another workflow to handle the actual job. It helps manage jobs smoothly without overloading the system.",
+          "height": 200,
+          "width": 640
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          240,
+          -48
+        ],
+        "id": "6ec187f4-e3ed-41dc-9b3a-08af1384b0dd",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "012c1260-9c77-44aa-a153-2369b219ff9d",
+                "leftValue": "={{ $json.result }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1568,
+          240
+        ],
+        "id": "c2fb1ceb-c754-437f-9180-71c30f62f9d9",
+        "name": "Check if Job Exists"
+      },
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          800,
+          240
+        ],
+        "id": "94faa0ae-f8f7-4954-af52-f8c13ca3f0c7",
+        "name": "Start Worker"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "wTvvCQRkDWH4p2ep",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/wTvvCQRkDWH4p2ep",
+            "cachedResultName": "02-Picasso"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {
+            "waitForSubWorkflow": false
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          2240,
+          224
+        ],
+        "id": "a373ab0a-fa4b-460f-be79-9773b4cc8f45",
+        "name": "Run Full Pipeline",
+        "executeOnce": false
+      },
+      {
+        "parameters": {
+          "jsCode": "// 1. Fetch the security tokens from the very start of the workflow\n// We use .first() because the trigger only runs once per execution.\nconst startData = $('Start Worker').first().json;\n\n// 2. Map over the current input (the Redis job result)\n// and merge the tokens into it.\nreturn $input.all().map(item => {\n  return {\n    json: {\n      // Keep the existing Redis result\n      result: item.json.result,\n\n      // Inject our tokens\n      worker_token: startData.worker_token,\n      slot_id: startData.slot_id\n    }\n  };\n});"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1840,
+          224
+        ],
+        "id": "181f26e2-080e-467b-bc97-1e28d8096fae",
+        "name": "Inject Worker Tokens"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "4286cbbd-d2d0-479e-868e-b33bf1655e7b",
+                "leftValue": "={{ $json.result }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1056,
+          240
+        ],
+        "id": "e0c3acf0-d400-455c-9a31-da15d92c99b7",
+        "name": "Has Pre-Popped Data?"
+      }
+    ],
+    "connections": {
+      "PopJobAndProcess": {
+        "main": [
+          [
+            {
+              "node": "Check if Job Exists",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check if Job Exists": {
+        "main": [
+          [
+            {
+              "node": "Inject Worker Tokens",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Start Worker": {
+        "main": [
+          [
+            {
+              "node": "Has Pre-Popped Data?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Inject Worker Tokens": {
+        "main": [
+          [
+            {
+              "node": "Run Full Pipeline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Pre-Popped Data?": {
+        "main": [
+          [
+            {
+              "node": "Check if Job Exists",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "PopJobAndProcess",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Muhasin Rashid",
+    "name": "Version 123f1eb2",
+    "description": "",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-17T18:35:51.169Z",
+        "id": 100,
+        "workflowId": "sbikCUZ8YSTSByDN",
+        "versionId": "123f1eb2-6a52-45d3-840d-1d1927b6107d",
+        "event": "activated",
+        "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7"
+      }
+    ]
+  }
+}
