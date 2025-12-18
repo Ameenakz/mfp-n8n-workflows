@@ -1,0 +1,1068 @@
+{
+  "updatedAt": "2025-06-27T05:24:33.488Z",
+  "createdAt": "2025-06-18T07:11:07.996Z",
+  "id": "d1ufKupUPdg2xJFP",
+  "name": "Hermes04",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        80
+      ],
+      "id": "cd108e72-e619-4a6a-b2f6-5e92da764193",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}'\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "cb8fdefa-201f-4784-8871-8faa7ce02fa6",
+      "name": "Create Gallery Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}.myshopify.com/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    page_url: pageUrl,\n    admin_url: `https://${config.shopify_store_url}/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+      },
+      "id": "83fd683f-5332-4e05-b9e7-7887044f259d",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'myfurryprints-' + Date.now().toString().slice(-4),\n  petname: config.petname // <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+      },
+      "id": "7b0082d8-f5c6-4524-8fd0-1a4582dfad57",
+      "name": "Process Collections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendTemplate",
+        "templateId": 1,
+        "receipients": "={{ $('Set Configuration').item.json.email }}",
+        "additionalFields": {
+          "templateParameters": {
+            "parameterValues": {
+              "parameters": "=registrationUrl={{ $json.page_url }}"
+            }
+          }
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        2140,
+        80
+      ],
+      "id": "0da4873d-8150-4589-b46b-57d61c3c2e4b",
+      "name": "Brevo",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "shopify_store_url",
+              "stringValue": "j4zewh-kg.myshopify.com"
+            },
+            {
+              "name": "collection_handles",
+              "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+            },
+            {
+              "name": "email",
+              "stringValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4afa80a5-5d75-4a5a-a032-c9582cb281cd",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 300,
+        "width": 2300,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e072bb0a-06f6-4585-b1ff-43e08978a040",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        80
+      ],
+      "id": "942a42c2-01a9-47f5-9960-6574fe934a78",
+      "name": "Consolidate Gallery Data1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+              "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+              "rightValue": 201,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bd83e8cc-5a5f-4462-9df3-1b3794e80fdc",
+      "name": "Validate Gallery Creation1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+      },
+      "id": "71caea41-070e-410c-b78f-7124bef2d519",
+      "name": "Debug Gallery Data1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        80
+      ],
+      "id": "54d5cc38-7e3c-4bf3-8e7c-f2ff614a8acd",
+      "name": "extracting handle1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/del/processing_lock",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2520,
+        280
+      ],
+      "id": "73293b04-a193-4fdb-8215-019a1c120a20",
+      "name": "ClearProcessingLock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/llen/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2720,
+        280
+      ],
+      "id": "fb753a6e-df47-4f29-85d3-a718125ec1bd",
+      "name": "CheckQueueForMore",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2900,
+        280
+      ],
+      "id": "b5f047d6-da4b-45e7-b791-f7065d9e45dd",
+      "name": "IfQueueHasJobs"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "AkHgXJy4K2zLgFlV",
+          "mode": "list",
+          "cachedResultName": "Hagrid01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3140,
+        280
+      ],
+      "id": "40a3a2d5-b2fe-4fa0-9eef-7221b0cdcb77",
+      "name": "Execute Workflow"
+    },
+    {
+      "parameters": {
+        "content": "Clears the processing lock, checks for jobs in the queue.\nIf job exists, returns to 01Hagrid and next submission gets executed",
+        "height": 120
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2760,
+        460
+      ],
+      "id": "b552ccde-ef95-4af6-a135-72b4fbb4305a",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "extracting handle1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gallery Page": {
+      "main": [
+        [
+          {
+            "node": "Validate Gallery Creation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Collections": {
+      "main": [
+        [
+          {
+            "node": "Debug Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brevo": {
+      "main": [
+        [
+          {
+            "node": "ClearProcessingLock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {
+            "node": "Process Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Set Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Gallery Creation1": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Create Gallery Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracting handle1": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClearProcessingLock": {
+      "main": [
+        [
+          {
+            "node": "CheckQueueForMore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckQueueForMore": {
+      "main": [
+        [
+          {
+            "node": "IfQueueHasJobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IfQueueHasJobs": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "8223ef94-1a65-4e63-9f0d-af54f744abf4",
+  "activeVersionId": "8223ef94-1a65-4e63-9f0d-af54f744abf4",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-06-18T07:11:07.996Z",
+      "createdAt": "2025-06-18T07:11:07.996Z",
+      "role": "workflow:owner",
+      "workflowId": "d1ufKupUPdg2xJFP",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "8223ef94-1a65-4e63-9f0d-af54f744abf4",
+    "workflowId": "d1ufKupUPdg2xJFP",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          100,
+          80
+        ],
+        "id": "cd108e72-e619-4a6a-b2f6-5e92da764193",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}'\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "cb8fdefa-201f-4784-8871-8faa7ce02fa6",
+        "name": "Create Gallery Page",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.1,
+        "position": [
+          1560,
+          80
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}.myshopify.com/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    page_url: pageUrl,\n    admin_url: `https://${config.shopify_store_url}/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+        },
+        "id": "83fd683f-5332-4e05-b9e7-7887044f259d",
+        "name": "Format Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1960,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'myfurryprints-' + Date.now().toString().slice(-4),\n  petname: config.petname // <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+        },
+        "id": "7b0082d8-f5c6-4524-8fd0-1a4582dfad57",
+        "name": "Process Collections",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1120,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "sendTemplate",
+          "templateId": 1,
+          "receipients": "={{ $('Set Configuration').item.json.email }}",
+          "additionalFields": {
+            "templateParameters": {
+              "parameterValues": {
+                "parameters": "=registrationUrl={{ $json.page_url }}"
+              }
+            }
+          },
+          "requestOptions": {}
+        },
+        "type": "n8n-nodes-base.sendInBlue",
+        "typeVersion": 1,
+        "position": [
+          2140,
+          80
+        ],
+        "id": "0da4873d-8150-4589-b46b-57d61c3c2e4b",
+        "name": "Brevo",
+        "credentials": {
+          "sendInBlueApi": {
+            "id": "iKQewRm9lysjCraU",
+            "name": "Brevo account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "fields": {
+            "values": [
+              {
+                "name": "shopify_store_url",
+                "stringValue": "j4zewh-kg.myshopify.com"
+              },
+              {
+                "name": "collection_handles",
+                "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+              },
+              {
+                "name": "email",
+                "stringValue": "={{ $json.email }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "4afa80a5-5d75-4a5a-a032-c9582cb281cd",
+        "name": "Set Configuration",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.2,
+        "position": [
+          900,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "content": "",
+          "height": 300,
+          "width": 2300,
+          "color": 6
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "e072bb0a-06f6-4585-b1ff-43e08978a040",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          660,
+          80
+        ],
+        "id": "942a42c2-01a9-47f5-9960-6574fe934a78",
+        "name": "Consolidate Gallery Data1"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+                "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+                "rightValue": 201,
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "bd83e8cc-5a5f-4462-9df3-1b3794e80fdc",
+        "name": "Validate Gallery Creation1",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          1740,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+        },
+        "id": "71caea41-070e-410c-b78f-7124bef2d519",
+        "name": "Debug Gallery Data1",
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          1360,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          360,
+          80
+        ],
+        "id": "54d5cc38-7e3c-4bf3-8e7c-f2ff614a8acd",
+        "name": "extracting handle1"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/del/processing_lock",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2520,
+          280
+        ],
+        "id": "73293b04-a193-4fdb-8215-019a1c120a20",
+        "name": "ClearProcessingLock",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/llen/myfurryprints_queue",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2720,
+          280
+        ],
+        "id": "fb753a6e-df47-4f29-85d3-a718125ec1bd",
+        "name": "CheckQueueForMore",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+                "leftValue": "={{ $json.result }}",
+                "rightValue": 0,
+                "operator": {
+                  "type": "number",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2900,
+          280
+        ],
+        "id": "b5f047d6-da4b-45e7-b791-f7065d9e45dd",
+        "name": "IfQueueHasJobs"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "AkHgXJy4K2zLgFlV",
+            "mode": "list",
+            "cachedResultName": "Hagrid01"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          3140,
+          280
+        ],
+        "id": "40a3a2d5-b2fe-4fa0-9eef-7221b0cdcb77",
+        "name": "Execute Workflow"
+      },
+      {
+        "parameters": {
+          "content": "Clears the processing lock, checks for jobs in the queue.\nIf job exists, returns to 01Hagrid and next submission gets executed",
+          "height": 120
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          2760,
+          460
+        ],
+        "id": "b552ccde-ef95-4af6-a135-72b4fbb4305a",
+        "name": "Sticky Note1"
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "extracting handle1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Gallery Page": {
+        "main": [
+          [
+            {
+              "node": "Validate Gallery Creation1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Response": {
+        "main": [
+          [
+            {
+              "node": "Brevo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Collections": {
+        "main": [
+          [
+            {
+              "node": "Debug Gallery Data1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Brevo": {
+        "main": [
+          [
+            {
+              "node": "ClearProcessingLock",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Configuration": {
+        "main": [
+          [
+            {
+              "node": "Process Collections",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Consolidate Gallery Data1": {
+        "main": [
+          [
+            {
+              "node": "Set Configuration",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Gallery Creation1": {
+        "main": [
+          [
+            {
+              "node": "Format Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Debug Gallery Data1": {
+        "main": [
+          [
+            {
+              "node": "Create Gallery Page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "extracting handle1": {
+        "main": [
+          [
+            {
+              "node": "Consolidate Gallery Data1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ClearProcessingLock": {
+        "main": [
+          [
+            {
+              "node": "CheckQueueForMore",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CheckQueueForMore": {
+        "main": [
+          [
+            {
+              "node": "IfQueueHasJobs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IfQueueHasJobs": {
+        "main": [
+          [
+            {
+              "node": "Execute Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-06-27T05:24:33.488Z",
+        "id": 34,
+        "workflowId": "d1ufKupUPdg2xJFP",
+        "versionId": "8223ef94-1a65-4e63-9f0d-af54f744abf4",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
