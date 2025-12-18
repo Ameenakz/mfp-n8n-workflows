@@ -1,0 +1,4243 @@
+{
+  "updatedAt": "2025-12-18T15:48:43.814Z",
+  "createdAt": "2025-07-24T09:30:42.972Z",
+  "id": "1keiD2LrebeYxt6I",
+  "name": "DevKit-Variant",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        48
+      ],
+      "id": "55148f77-4a74-4f1b-9897-9a632005ea2a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $json.templateId }}.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -944,
+        64
+      ],
+      "id": "6efc9d4d-448c-449e-9d39-118bca47302b",
+      "name": "Get Product Info",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "variants",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        64
+      ],
+      "id": "a09c496c-be3b-43fb-bea5-6a7f1cf8255a",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "10c07b7c-bac7-4950-bb45-9283ef6f76b5",
+              "name": "TEMPLATE - Canvas Portrait",
+              "value": "687b3a2ed857375c120bf72b",
+              "type": "string"
+            },
+            {
+              "id": "887fda89-45ea-4cd5-b75c-2f3d64abebc3",
+              "name": "TEMPLATE - Color Accent Mug",
+              "value": "6878b0fed9cc50a8d502581e",
+              "type": "string"
+            },
+            {
+              "id": "4ef63b87-1493-4335-baec-530a58e6d7f3",
+              "name": "TEMPLATE - Premium Framed Poster",
+              "value": "687fd5095ac5cf021e02bec2",
+              "type": "string"
+            },
+            {
+              "id": "89f7ab95-9c75-4c58-8c23-b49424910249",
+              "name": "TEMPLATE - Premium Cotton Unisex T-shirt",
+              "value": "6878c2d13ae7beeca4002753",
+              "type": "string"
+            },
+            {
+              "id": "d4d01bd9-60ed-459a-a0a5-3b14691ef17f",
+              "name": "TEMPLATE - Tough iphonePhone Case",
+              "value": "68945a22da39ea6b4a01eba0",
+              "type": "string"
+            },
+            {
+              "id": "71e1776c-3abc-402d-8b9d-011557e2184e",
+              "name": "TEMPLATE - Tough samsung Phone Case",
+              "value": "68945ca1b5bf84d7d906b4da",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1472,
+        560
+      ],
+      "id": "7bf47079-bde2-4f12-812f-52b2ff94645c",
+      "name": "AllTemplates"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1b083a2-856e-4b7e-a9b2-7c555e421c31",
+              "name": "TemplateId",
+              "value": "68945ca1b5bf84d7d906b4da",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1360,
+        48
+      ],
+      "id": "38e5e06d-a443-4533-9fe7-4b013b01a368",
+      "name": "SingleTemplate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Method 1: Direct access to the data\nconst outputItems = [];\n\n// Access the input data - try different approaches\nlet templateData;\n\n// Try accessing the data in different ways n8n might structure it\nif ($input.all() && $input.all().length > 0) {\n  templateData = $input.all()[0].json;\n} else if ($json) {\n  templateData = $json;\n} else {\n  templateData = items[0].json;\n}\n\n// Check if we have the expected structure\nif (templateData && typeof templateData === 'object') {\n  // If it's already the object we want\n  if (!Array.isArray(templateData)) {\n    for (const [templateName, templateId] of Object.entries(templateData)) {\n      outputItems.push({\n        templateName: templateName,\n        templateId: templateId\n      });\n    }\n  } \n  // If it's wrapped in an array\n  else if (Array.isArray(templateData) && templateData.length > 0) {\n    for (const [templateName, templateId] of Object.entries(templateData[0])) {\n      outputItems.push({\n        templateName: templateName,\n        templateId: templateId\n      });\n    }\n  }\n}\n\nreturn outputItems;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1136,
+        64
+      ],
+      "id": "0ec1f49b-b654-4d07-9cea-4cc0dd633c96",
+      "name": "ProcessEachItem"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c02012e7-f4aa-451b-a897-189fa493b0da",
+              "leftValue": "={{ $json.is_enabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -496,
+        64
+      ],
+      "id": "03d9fc40-371d-43ad-ab0e-c22d2ba66f4f",
+      "name": "Check Enabled Variants"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all input data items\nconst inputData = $input.all();\n\n// Build an object mapping titles to variant IDs\nconst variantMap = {};\n\nfor (const item of inputData) {\n  const { title, id } = item.json;\n  variantMap[title] = id;\n}\n\n// Return the result as a single item\nreturn [{ json: variantMap }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        -160
+      ],
+      "id": "4a3a7c5c-5b74-4259-bd23-c3447c2dd450",
+      "name": "Extract Variant ID"
+    },
+    {
+      "parameters": {
+        "content": "## Used to Extract Variants \n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2464,
+        640
+      ],
+      "typeVersion": 1,
+      "id": "62f24b6c-6429-46b8-8212-e58a1d11f629",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "SingleTemplate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Product Info": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Check Enabled Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AllTemplates": {
+      "main": [
+        []
+      ]
+    },
+    "SingleTemplate": {
+      "main": [
+        [
+          {
+            "node": "ProcessEachItem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ProcessEachItem": {
+      "main": [
+        [
+          {
+            "node": "Get Product Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Enabled Variants": {
+      "main": [
+        [
+          {
+            "node": "Extract Variant ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "When clicking ‘Execute workflow’": [
+      {
+        "json": {}
+      }
+    ],
+    "Get Product Info": [
+      {
+        "json": {
+          "id": "68945ca1b5bf84d7d906b4da",
+          "title": "TEMPLATE - Tough Phone Case - Samsung",
+          "description": "<p style=\"font-size: 14px;\"><span style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Protect your phone in style with our Tough Phone Case, personalized with a captivating portrait of your beloved pet. Perfect as a practical gift or a stylish accessory for yourself, this case combines maximum protection with heartfelt personalization.</span></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\"> </strong></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Maximum Durability</strong></p><p style=\"font-size: 14px;\"><span style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Engineered with a dual-layer design, this case provides exceptional durability, safeguarding your phone against daily wear, accidental drops, and scratches.</span></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\"> </strong></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Vibrant Wraparound Print</strong></p><p style=\"font-size: 14px;\"><span style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Featuring a vibrant wraparound print on both the back and sides, your pet&#39;s adorable image will shine with clarity, offering a delightful daily reminder of your furry friend.</span></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\"> </strong></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Precision Design</strong></p><p style=\"font-size: 14px;\"><span style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Each case includes precisely aligned openings to ensure easy access to buttons and ports, maintaining the full functionality of your iPhone.</span></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\"> </strong></p><p style=\"font-size: 14px;\"><strong style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Wireless Charging Compatible</strong></p><p style=\"font-size: 14px;\"><span style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Designed to seamlessly support wireless charging, your personalized case provides convenience without compromising protection.</span></p><p style=\"font-size: 14px;\"><span style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\"> </span></p><h4 style=\"padding: 0px; font-size: 1.07143rem;\"><em style=\"color: rgba(0, 0, 0, 0.87); background-color: rgb(255, 255, 255);\">Available for a wide range of models, because every cherished pet deserves to be carried with care.</em></h4><p></p>",
+          "tags": [
+            "phone case",
+            "pet lover gift",
+            "stylish accessory",
+            "fashionable pet",
+            "cute dog design",
+            "trendy phone case",
+            "gifts for dog lovers",
+            "humorous phone cover",
+            "chic dog art",
+            "unique pet gifts",
+            "fashion phone case",
+            "stylish dog gift",
+            "canine fashionista"
+          ],
+          "options": [
+            {
+              "name": "Phone models",
+              "type": "size",
+              "values": [
+                {
+                  "id": 6494,
+                  "title": "iPhone 17"
+                },
+                {
+                  "id": 6497,
+                  "title": "iPhone 17 Air"
+                },
+                {
+                  "id": 6495,
+                  "title": "iPhone 17 Pro"
+                },
+                {
+                  "id": 6496,
+                  "title": "iPhone 17 Pro Max"
+                },
+                {
+                  "id": 5188,
+                  "title": "iPhone 16 Pro"
+                },
+                {
+                  "id": 5190,
+                  "title": "iPhone 16 Pro Max"
+                },
+                {
+                  "id": 5187,
+                  "title": "iPhone 16"
+                },
+                {
+                  "id": 5189,
+                  "title": "iPhone 16 Plus"
+                },
+                {
+                  "id": 4554,
+                  "title": "iPhone 15"
+                },
+                {
+                  "id": 4555,
+                  "title": "iPhone 15 Pro"
+                },
+                {
+                  "id": 4556,
+                  "title": "iPhone 15 Plus"
+                },
+                {
+                  "id": 4557,
+                  "title": "iPhone 15 Pro Max"
+                },
+                {
+                  "id": 4150,
+                  "title": "iPhone 14"
+                },
+                {
+                  "id": 4151,
+                  "title": "iPhone 14 Pro"
+                },
+                {
+                  "id": 4153,
+                  "title": "iPhone 14 Plus"
+                },
+                {
+                  "id": 4152,
+                  "title": "iPhone 14 Pro Max"
+                },
+                {
+                  "id": 2862,
+                  "title": "iPhone 13"
+                },
+                {
+                  "id": 2861,
+                  "title": "iPhone 13 Mini"
+                },
+                {
+                  "id": 2863,
+                  "title": "iPhone 13 Pro"
+                },
+                {
+                  "id": 2864,
+                  "title": "iPhone 13 Pro Max"
+                },
+                {
+                  "id": 2449,
+                  "title": "iPhone 12"
+                },
+                {
+                  "id": 2448,
+                  "title": "iPhone 12 Mini"
+                },
+                {
+                  "id": 2450,
+                  "title": "iPhone 12 Pro"
+                },
+                {
+                  "id": 2451,
+                  "title": "iPhone 12 Pro Max"
+                },
+                {
+                  "id": 2243,
+                  "title": "iPhone 11"
+                },
+                {
+                  "id": 2244,
+                  "title": "iPhone 11 Pro"
+                },
+                {
+                  "id": 2245,
+                  "title": "iPhone 11 Pro Max"
+                },
+                {
+                  "id": 2087,
+                  "title": "iPhone X"
+                },
+                {
+                  "id": 2103,
+                  "title": "iPhone XR"
+                },
+                {
+                  "id": 2101,
+                  "title": "iPhone XS"
+                },
+                {
+                  "id": 2102,
+                  "title": "iPhone XS MAX"
+                },
+                {
+                  "id": 2088,
+                  "title": "iPhone 8"
+                },
+                {
+                  "id": 2089,
+                  "title": "iPhone 8 Plus"
+                },
+                {
+                  "id": 5473,
+                  "title": "Google Pixel 9"
+                },
+                {
+                  "id": 5474,
+                  "title": "Google Pixel 9 Pro"
+                },
+                {
+                  "id": 5475,
+                  "title": "Google Pixel 9 Pro XL"
+                },
+                {
+                  "id": 4731,
+                  "title": "Google Pixel 8"
+                },
+                {
+                  "id": 4732,
+                  "title": "Google Pixel 8 Pro"
+                },
+                {
+                  "id": 4312,
+                  "title": "Google Pixel 7"
+                },
+                {
+                  "id": 3384,
+                  "title": "Google Pixel 6"
+                },
+                {
+                  "id": 4311,
+                  "title": "Google Pixel 6 Pro"
+                },
+                {
+                  "id": 3383,
+                  "title": "Google Pixel 5 5G"
+                },
+                {
+                  "id": 5482,
+                  "title": "Google Pixel 4"
+                },
+                {
+                  "id": 5483,
+                  "title": "Google Pixel 4a"
+                },
+                {
+                  "id": 5485,
+                  "title": "Google Pixel 4a 5G"
+                },
+                {
+                  "id": 5484,
+                  "title": "Google Pixel 4 XL"
+                },
+                {
+                  "id": 5479,
+                  "title": "Google Pixel 3 XL"
+                },
+                {
+                  "id": 5478,
+                  "title": "Google Pixel 3"
+                },
+                {
+                  "id": 5480,
+                  "title": "Google Pixel 3a"
+                },
+                {
+                  "id": 5481,
+                  "title": "Google Pixel 3a XL"
+                },
+                {
+                  "id": 5476,
+                  "title": "Google Pixel 2"
+                },
+                {
+                  "id": 5477,
+                  "title": "Google Pixel 2 XL"
+                },
+                {
+                  "id": 5486,
+                  "title": "Google Pixel"
+                },
+                {
+                  "id": 5487,
+                  "title": "Google Pixel XL"
+                },
+                {
+                  "id": 5586,
+                  "title": "Samsung Galaxy S25"
+                },
+                {
+                  "id": 5587,
+                  "title": "Samsung Galaxy S25 Plus"
+                },
+                {
+                  "id": 5588,
+                  "title": "Samsung Galaxy S25 Ultra"
+                },
+                {
+                  "id": 4709,
+                  "title": "Samsung Galaxy S24"
+                },
+                {
+                  "id": 4710,
+                  "title": "Samsung Galaxy S24 Plus"
+                },
+                {
+                  "id": 4711,
+                  "title": "Samsung Galaxy S24 Ultra"
+                },
+                {
+                  "id": 4273,
+                  "title": "Samsung Galaxy S23"
+                },
+                {
+                  "id": 4274,
+                  "title": "Samsung Galaxy S23 Plus"
+                },
+                {
+                  "id": 4275,
+                  "title": "Samsung Galaxy S23 Ultra"
+                },
+                {
+                  "id": 3410,
+                  "title": "Samsung Galaxy S22"
+                },
+                {
+                  "id": 3409,
+                  "title": "Samsung Galaxy S22 Plus"
+                },
+                {
+                  "id": 3408,
+                  "title": "Samsung Galaxy S22 Ultra"
+                },
+                {
+                  "id": 2647,
+                  "title": "Samsung Galaxy S21"
+                },
+                {
+                  "id": 2648,
+                  "title": "Samsung Galaxy S21 Plus"
+                },
+                {
+                  "id": 2649,
+                  "title": "Samsung Galaxy S21 Ultra"
+                },
+                {
+                  "id": 3385,
+                  "title": "Samsung Galaxy S21 FE"
+                },
+                {
+                  "id": 2354,
+                  "title": "Samsung Galaxy S20"
+                },
+                {
+                  "id": 2355,
+                  "title": "Samsung Galaxy S20+"
+                },
+                {
+                  "id": 2356,
+                  "title": "Samsung Galaxy S20 Ultra"
+                },
+                {
+                  "id": 3386,
+                  "title": "Samsung Galaxy S20 FE"
+                },
+                {
+                  "id": 2177,
+                  "title": "Samsung Galaxy S10"
+                },
+                {
+                  "id": 2179,
+                  "title": "Samsung Galaxy S10E"
+                },
+                {
+                  "id": 2178,
+                  "title": "Samsung Galaxy S10 Plus"
+                }
+              ],
+              "display_in_preview": true
+            },
+            {
+              "name": "Finishes",
+              "type": "surface",
+              "values": [
+                {
+                  "id": 1531,
+                  "title": "Glossy"
+                },
+                {
+                  "id": 1532,
+                  "title": "Matte"
+                }
+              ],
+              "display_in_preview": true
+            }
+          ],
+          "variants": [
+            {
+              "id": 61521,
+              "sku": "33617992169543802928",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 8 / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2088,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61522,
+              "sku": "28779221857413915022",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 8 / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2088,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61523,
+              "sku": "33747334213088782531",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 8 Plus / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2089,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61524,
+              "sku": "17383390196152388219",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 8 Plus / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2089,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61525,
+              "sku": "25067615658690258829",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone X / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2087,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61526,
+              "sku": "11140387655847022953",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone X / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2087,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61529,
+              "sku": "22133346887851227215",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone XR / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2103,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61530,
+              "sku": "11901989526241580153",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone XR / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2103,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61531,
+              "sku": "15017484903308207361",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone XS / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2101,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61532,
+              "sku": "14535719828699845986",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone XS / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2101,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61533,
+              "sku": "26455015815131041275",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone XS MAX / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2102,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61534,
+              "sku": "23288951947095316028",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone XS MAX / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2102,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61797,
+              "sku": "88590939873543673817",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S10E / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2179,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61798,
+              "sku": "32933228023553995270",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S10E / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2179,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61800,
+              "sku": "85548600390444744854",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S10 Plus / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2178,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61801,
+              "sku": "25500001635492179478",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S10 / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2177,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61804,
+              "sku": "12376746316657198212",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S10 Plus / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2178,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 61805,
+              "sku": "13995496696007465549",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S10 / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2177,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 63234,
+              "sku": "18661078207693937305",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 11 / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2243,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 63235,
+              "sku": "85865107176663976329",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 11 / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2243,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 63236,
+              "sku": "17407358752077203096",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 11 Pro / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2244,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 63237,
+              "sku": "13575605836917443071",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 11 Pro / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2244,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 63238,
+              "sku": "98463783229221837866",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 11 Pro Max / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2245,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 63239,
+              "sku": "22103411598566252991",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 11 Pro Max / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2245,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 65225,
+              "sku": "73909211005685975729",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20 / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2354,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 65226,
+              "sku": "15463496943258365477",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20 / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2354,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 65227,
+              "sku": "17838743750932725123",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20 Ultra / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2356,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 65228,
+              "sku": "22990151342054348286",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20 Ultra / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2356,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 65229,
+              "sku": "27260625586480556097",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20+ / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2355,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 65230,
+              "sku": "61737603137505192826",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20+ / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                2355,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 67996,
+              "sku": "29830887429769354578",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 Mini / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2448,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 67997,
+              "sku": "93476052837354739120",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 Mini / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2448,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 67998,
+              "sku": "10197120618133317826",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2449,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 67999,
+              "sku": "45066883503719383012",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2449,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 68000,
+              "sku": "39722549473974610940",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 Pro / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2450,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 68001,
+              "sku": "35344217503383579090",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 Pro / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2450,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 68002,
+              "sku": "28260882281527093130",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 Pro Max / Glossy",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2451,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 68003,
+              "sku": "32158172025782045331",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 12 Pro Max / Matte",
+              "grams": 200,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2451,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75383,
+              "sku": "30503404663573767882",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2862,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75384,
+              "sku": "21900184183751057534",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2862,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75385,
+              "sku": "24780309026714628901",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 Mini / Glossy",
+              "grams": 35,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2861,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75386,
+              "sku": "12134580935643554945",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 Mini / Matte",
+              "grams": 35,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2861,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75387,
+              "sku": "18003273094948725366",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 Pro / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2863,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75388,
+              "sku": "29655488272872168544",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 Pro / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2863,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75389,
+              "sku": "29177618209155629727",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 Pro Max / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2864,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 75390,
+              "sku": "21103885080973340766",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 13 Pro Max / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2864,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 77841,
+              "sku": "13187136534292799575",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S21 / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2647,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 77842,
+              "sku": "69428704727141598567",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S21 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2647,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 77843,
+              "sku": "11756189253110552691",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S21 Plus / Glossy",
+              "grams": 45,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2648,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 77844,
+              "sku": "19209853392400166192",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S21 Plus / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2648,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 77845,
+              "sku": "20179205833168115112",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S21 Ultra / Glossy",
+              "grams": 45,
+              "is_enabled": true,
+              "is_default": true,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2649,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 77846,
+              "sku": "62094831656224942162",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S21 Ultra / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                2649,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79419,
+              "sku": "15296778483273839176",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 5 5G / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                3383,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79420,
+              "sku": "36551970308440987383",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 5 5G / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3383,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79421,
+              "sku": "32628318455781900365",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 6 / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3384,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79422,
+              "sku": "13385631778896957116",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 6 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3384,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79423,
+              "sku": "15650274451493301348",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20 FE / Glossy",
+              "grams": 25,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3386,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79424,
+              "sku": "12206148891714339810",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S20 FE / Matte",
+              "grams": 25,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3386,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79425,
+              "sku": "10906263128631411468",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S21 FE / Glossy",
+              "grams": 45,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3385,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 79426,
+              "sku": "23599171729338399508",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S21 FE / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3385,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 80152,
+              "sku": "10394817206432427406",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S22 / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3410,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 80153,
+              "sku": "80067004062662925085",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S22 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3410,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 80154,
+              "sku": "36379256763036960830",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S22 Plus / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3409,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 80155,
+              "sku": "58022940959099737092",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S22 Plus / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3409,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 80156,
+              "sku": "25864316879643018110",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S22 Ultra / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                3408,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 80157,
+              "sku": "20615817177834328452",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S22 Ultra / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                3408,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96397,
+              "sku": "23668844497104827465",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4150,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96398,
+              "sku": "36543766544236369412",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4150,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96399,
+              "sku": "30853551156419564580",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 Pro / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4151,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96400,
+              "sku": "30874479852360811438",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 Pro / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4151,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96401,
+              "sku": "18250871380827037685",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 Plus / Glossy",
+              "grams": 49,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4153,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96402,
+              "sku": "60317381855197633523",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 Plus / Matte",
+              "grams": 49,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4153,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96403,
+              "sku": "24363632768172962267",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 Pro Max / Glossy",
+              "grams": 49,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4152,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96404,
+              "sku": "95494253347931861081",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 14 Pro Max / Matte",
+              "grams": 49,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4152,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96738,
+              "sku": "81192072211560539104",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S23 / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4273,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96739,
+              "sku": "23630394736677009255",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S23 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4273,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96740,
+              "sku": "24873291170856416841",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S23 Plus / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4274,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96741,
+              "sku": "81679576116060183338",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S23 Plus / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4274,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96742,
+              "sku": "13608673251630147699",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S23 Ultra / Glossy",
+              "grams": 40,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4275,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 96743,
+              "sku": "67599205631114392180",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S23 Ultra / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4275,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 98738,
+              "sku": "33527041366455581443",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 7 / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4312,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 98739,
+              "sku": "63459819267919710418",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 7 / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                4312,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 98740,
+              "sku": "20729571795858899143",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 6 Pro / Glossy",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                4311,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 98741,
+              "sku": "13278700353912110806",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 6 Pro / Matte",
+              "grams": 40,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                4311,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102547,
+              "sku": "33897375460151189392",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 / Glossy",
+              "grams": 39,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4554,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102548,
+              "sku": "15574559896262858337",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 / Matte",
+              "grams": 39,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4554,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102549,
+              "sku": "17546660310037515468",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 Plus / Glossy",
+              "grams": 51,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4556,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102550,
+              "sku": "56066305202630980467",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 Plus / Matte",
+              "grams": 51,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4556,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102551,
+              "sku": "33526687590480353162",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 Pro / Glossy",
+              "grams": 39,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4555,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102552,
+              "sku": "10417762171885037487",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 Pro / Matte",
+              "grams": 39,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4555,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102553,
+              "sku": "56986098004173713975",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 Pro Max / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4557,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 102554,
+              "sku": "67631287216938885555",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 15 Pro Max / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4557,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105148,
+              "sku": "97390334768816793307",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S24 / Glossy",
+              "grams": 39,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4709,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105149,
+              "sku": "63128689104171603926",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S24 / Matte",
+              "grams": 39,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                4709,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105150,
+              "sku": "21968888604481849895",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S24 Plus / Glossy",
+              "grams": 45,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4710,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105151,
+              "sku": "11211687219115399641",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S24 Plus / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4710,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105152,
+              "sku": "13494160878034434741",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S24 Ultra / Glossy",
+              "grams": 45,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4711,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105153,
+              "sku": "15753893184893200491",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S24 Ultra / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4711,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105154,
+              "sku": "69042239243806184759",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 8 Pro / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4732,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105155,
+              "sku": "21528961313076757693",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 8 Pro / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4732,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105156,
+              "sku": "30989515223003036899",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 8 / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4731,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 105157,
+              "sku": "26713582761234229610",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 8 / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                4731,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112191,
+              "sku": "28554017404129104925",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5187,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112192,
+              "sku": "11528062463889552532",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5187,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112193,
+              "sku": "27489165181802231030",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 Plus / Glossy",
+              "grams": 55,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5189,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112194,
+              "sku": "21430679425337604616",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 Plus / Matte",
+              "grams": 55,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5189,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112195,
+              "sku": "98278694329603318913",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 Pro / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5188,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112196,
+              "sku": "31661181313937664442",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 Pro / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5188,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112197,
+              "sku": "31044668620718789917",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 Pro Max / Glossy",
+              "grams": 50,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5190,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 112198,
+              "sku": "87048546895123591986",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 16 Pro Max / Matte",
+              "grams": 50,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5190,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116386,
+              "sku": "25811118069433382514",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 9 / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5473,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116387,
+              "sku": "35037084347965564199",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 9 / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5473,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116388,
+              "sku": "25248621572022222009",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 9 Pro / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5474,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116389,
+              "sku": "26196081977354622974",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 9 Pro / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5474,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116390,
+              "sku": "21955881756131294170",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 9 Pro XL / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5475,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116391,
+              "sku": "29779344386282019350",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 9 Pro XL / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5475,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116392,
+              "sku": "26369628881495339585",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 2 / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5476,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116393,
+              "sku": "24866839659517281187",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 2 / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5476,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116394,
+              "sku": "17643471961962035471",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 2 XL / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5477,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116395,
+              "sku": "13042034815445505598",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 2 XL / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5477,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116396,
+              "sku": "32956326590785070990",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3 / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5478,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116397,
+              "sku": "69102939239572529824",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3 / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5478,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116398,
+              "sku": "68939013160128432268",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3 XL / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5479,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116399,
+              "sku": "25935854240551616605",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3 XL / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5479,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116400,
+              "sku": "27689424703502252014",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3a / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5480,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116401,
+              "sku": "30064893645960252381",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3a / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5480,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116402,
+              "sku": "35900064551617589389",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3a XL / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5481,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116403,
+              "sku": "80996453883914285564",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 3a XL / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5481,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116404,
+              "sku": "14978824440655441067",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4 / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5482,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116405,
+              "sku": "22458214918873021225",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4 / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5482,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116406,
+              "sku": "26522947329305399511",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4 XL / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5484,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116407,
+              "sku": "19490726985774924759",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4 XL / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5484,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116408,
+              "sku": "23251743253509752591",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4a / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5483,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116409,
+              "sku": "12744659504172563004",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4a / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5483,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116410,
+              "sku": "10896052187380684884",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4a 5G / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5485,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116411,
+              "sku": "43756165720528162803",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel 4a 5G / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5485,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116412,
+              "sku": "29698138227700427668",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5486,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116413,
+              "sku": "73684697948048134050",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5486,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116414,
+              "sku": "31509509180831331404",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel XL / Glossy",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5487,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 116415,
+              "sku": "11869050871865831081",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Google Pixel XL / Matte",
+              "grams": 45,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": false,
+              "is_printify_express_eligible": false,
+              "options": [
+                5487,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 117862,
+              "sku": "68162421358868305192",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S25 / Glossy",
+              "grams": 397,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5586,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 117863,
+              "sku": "39423021805475101965",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S25 / Matte",
+              "grams": 397,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5586,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 117864,
+              "sku": "23584011682225712783",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S25 Plus / Glossy",
+              "grams": 454,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5587,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 117865,
+              "sku": "96236648169121690039",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S25 Plus / Matte",
+              "grams": 454,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5587,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 117866,
+              "sku": "89020724660448572767",
+              "cost": 1073,
+              "price": 2200,
+              "title": "Samsung Galaxy S25 Ultra / Glossy",
+              "grams": 454,
+              "is_enabled": true,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5588,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 117867,
+              "sku": "20767149549151810907",
+              "cost": 1073,
+              "price": 2146,
+              "title": "Samsung Galaxy S25 Ultra / Matte",
+              "grams": 454,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                5588,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129873,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 / Glossy",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6494,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129874,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 / Matte",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6494,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129875,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 Air / Glossy",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6497,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129876,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 Air / Matte",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6497,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129877,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 Pro / Glossy",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6495,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129878,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 Pro / Matte",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6495,
+                1532
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129879,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 Pro Max / Glossy",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6496,
+                1531
+              ],
+              "quantity": 1
+            },
+            {
+              "id": 129880,
+              "sku": "",
+              "cost": 1073,
+              "price": 2146,
+              "title": "iPhone 17 Pro Max / Matte",
+              "grams": 60,
+              "is_enabled": false,
+              "is_default": false,
+              "is_available": true,
+              "is_printify_express_eligible": false,
+              "options": [
+                6496,
+                1532
+              ],
+              "quantity": 1
+            }
+          ],
+          "images": [
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/77841/40181/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                77841
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/77843/40183/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                77843
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/77845/40185/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                77845
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/79425/41187/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                79425
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/80152/46725/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                80152
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/80154/46727/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                80154
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/80156/46706/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                80156
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/96738/86592/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                96738
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/96740/86594/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                96740
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/96742/86596/template-tough-phone-case-samsung.jpg?camera_label=front-and-side",
+              "variant_ids": [
+                96742
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/105148/102070/template-tough-phone-case-samsung.jpg?camera_label=front",
+              "variant_ids": [
+                105148
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/105150/102068/template-tough-phone-case-samsung.jpg?camera_label=front",
+              "variant_ids": [
+                105150
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/105152/102066/template-tough-phone-case-samsung.jpg?camera_label=front",
+              "variant_ids": [
+                105152
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/117862/109805/template-tough-phone-case-samsung.jpg?camera_label=front",
+              "variant_ids": [
+                117862
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/117864/109807/template-tough-phone-case-samsung.jpg?camera_label=front",
+              "variant_ids": [
+                117864
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            },
+            {
+              "src": "https://images.printify.com/mockup/68945ca1b5bf84d7d906b4da/117866/109803/template-tough-phone-case-samsung.jpg?camera_label=front",
+              "variant_ids": [
+                117866
+              ],
+              "position": "other",
+              "is_default": true,
+              "is_selected_for_publishing": true,
+              "order": null
+            }
+          ],
+          "created_at": "2025-08-07 07:58:25+00:00",
+          "updated_at": "2025-08-07 08:04:51+00:00",
+          "visible": true,
+          "is_locked": false,
+          "external": {
+            "id": "",
+            "handle": ""
+          },
+          "blueprint_id": 421,
+          "user_id": 22667816,
+          "shop_id": 21658609,
+          "print_provider_id": 23,
+          "print_areas": [
+            {
+              "variant_ids": [
+                61521,
+                61522,
+                61523,
+                61524,
+                61525,
+                61526,
+                61529,
+                61530,
+                61531,
+                61532,
+                61533,
+                61534,
+                61797,
+                61798,
+                61800,
+                61801,
+                61804,
+                61805,
+                63234,
+                63235,
+                63236,
+                63237,
+                63238,
+                63239,
+                65225,
+                65226,
+                65227,
+                65228,
+                65229,
+                65230,
+                67996,
+                67997,
+                67998,
+                67999,
+                68000,
+                68001,
+                68002,
+                68003,
+                75383,
+                75384,
+                75385,
+                75386,
+                75387,
+                75388,
+                75389,
+                75390,
+                77841,
+                77842,
+                77843,
+                77844,
+                77845,
+                77846,
+                79419,
+                79420,
+                79421,
+                79422,
+                79423,
+                79424,
+                79425,
+                79426,
+                80152,
+                80153,
+                80154,
+                80155,
+                80156,
+                80157,
+                96397,
+                96398,
+                96399,
+                96400,
+                96401,
+                96402,
+                96403,
+                96404,
+                96738,
+                96739,
+                96740,
+                96741,
+                96742,
+                96743,
+                98738,
+                98739,
+                98740,
+                98741,
+                102547,
+                102548,
+                102549,
+                102550,
+                102551,
+                102552,
+                102553,
+                102554,
+                105148,
+                105149,
+                105150,
+                105151,
+                105152,
+                105153,
+                105154,
+                105155,
+                105156,
+                105157,
+                112191,
+                112192,
+                112193,
+                112194,
+                112195,
+                112196,
+                112197,
+                112198,
+                116386,
+                116387,
+                116388,
+                116389,
+                116390,
+                116391,
+                116392,
+                116393,
+                116394,
+                116395,
+                116396,
+                116397,
+                116398,
+                116399,
+                116400,
+                116401,
+                116402,
+                116403,
+                116404,
+                116405,
+                116406,
+                116407,
+                116408,
+                116409,
+                116410,
+                116411,
+                116412,
+                116413,
+                116414,
+                116415,
+                117862,
+                117863,
+                117864,
+                117865,
+                117866,
+                117867
+              ],
+              "placeholders": [
+                {
+                  "position": "front",
+                  "images": [
+                    {
+                      "id": "687801a0bf656d1a23fdd062",
+                      "name": "Shopping_Spree.png",
+                      "type": "image/png",
+                      "height": 6000,
+                      "width": 4000,
+                      "x": 0.5445914804458678,
+                      "y": 0.5082242999343495,
+                      "scale": 1.089182960891735,
+                      "angle": 0,
+                      "src": "https://pfy-prod-image-storage.s3.us-east-2.amazonaws.com/22667816/3026ae3c-866a-4e4d-802a-e54e086e375a"
+                    }
+                  ],
+                  "decoration_method": "dye-sublimation"
+                }
+              ],
+              "background": "#ffffff"
+            }
+          ],
+          "print_details": [],
+          "sales_channel_properties": [],
+          "is_printify_express_eligible": false,
+          "is_printify_express_enabled": false,
+          "is_economy_shipping_eligible": true,
+          "is_economy_shipping_enabled": false,
+          "is_deleted": false,
+          "original_product_id": "",
+          "views": [
+            {
+              "id": 141939,
+              "label": "Phone cover back",
+              "position": "front",
+              "files": [
+                {
+                  "src": "https://images.printify.com/api/catalog/5c769ef27d8f9e000f43c3c5.svg",
+                  "variant_ids": [
+                    61521,
+                    61522
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c769f067d8f9e00067d6762.svg",
+                  "variant_ids": [
+                    61523,
+                    61524
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c769f707d8f9e0014112575.svg",
+                  "variant_ids": [
+                    61525,
+                    61526
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c769f867d8f9e00107298e2.svg",
+                  "variant_ids": [
+                    61529,
+                    61530
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c769f9c7d8f9e00186d6742.svg",
+                  "variant_ids": [
+                    61531,
+                    61532
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c769faf7d8f9e00067d6765.svg",
+                  "variant_ids": [
+                    61533,
+                    61534
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c939c2cb04d1a0017509ad5.svg",
+                  "variant_ids": [
+                    61801,
+                    61805
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c939c67b04d1a000b78f621.svg",
+                  "variant_ids": [
+                    61797,
+                    61798
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5c939c8db04d1a000b78f627.svg",
+                  "variant_ids": [
+                    61800,
+                    61804
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5dcaa3b09ed6150eb43d79de.svg",
+                  "variant_ids": [
+                    63234,
+                    63235
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5dcaa3c97198704f04161e94.svg",
+                  "variant_ids": [
+                    63236,
+                    63237
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5dcaa3d717a464558748e4da.svg",
+                  "variant_ids": [
+                    63238,
+                    63239
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5e5fc3f8c5612d676325e5a3.svg",
+                  "variant_ids": [
+                    65225,
+                    65226
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5e611556fd3aca524e4fe423.svg",
+                  "variant_ids": [
+                    65229,
+                    65230
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5e622fbc08072538d213690c.svg",
+                  "variant_ids": [
+                    65227,
+                    65228
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5f47c80f86671a6a5b0b9df9.svg",
+                  "variant_ids": [
+                    67998,
+                    67999
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5f47c820ad838f345b6df953.svg",
+                  "variant_ids": [
+                    68000,
+                    68001
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5f48bcd83c4735243c52295c.svg",
+                  "variant_ids": [
+                    68002,
+                    68003
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/5f4f5e25fd6d0326384132a5.svg",
+                  "variant_ids": [
+                    67996,
+                    67997
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/619c9be5d73f8c39837fd7d8.svg",
+                  "variant_ids": [
+                    75383,
+                    75384
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/619c9bff3149386cdb64bde1.svg",
+                  "variant_ids": [
+                    75385,
+                    75386
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/619c9c076c81aa670a46e599.svg",
+                  "variant_ids": [
+                    75387,
+                    75388
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/619c9c0c3149386cdb64bde7.svg",
+                  "variant_ids": [
+                    75389,
+                    75390
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/621e124dfefe9a676d2df601.svg",
+                  "variant_ids": [
+                    77843,
+                    77844
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/621e124dd7b7d84017283086.svg",
+                  "variant_ids": [
+                    77841,
+                    77842
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/621e124de8b94d6d63723d72.svg",
+                  "variant_ids": [
+                    77845,
+                    77846
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6758323af5c9aacbf0022386.svg",
+                  "variant_ids": [
+                    79419,
+                    79420
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675832469112699453019816.svg",
+                  "variant_ids": [
+                    79421,
+                    79422
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/623b338409f9671f832f13f3.svg",
+                  "variant_ids": [
+                    79423,
+                    79424
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/623b338c36f6e146d7073af9.svg",
+                  "variant_ids": [
+                    79425,
+                    79426
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/625fb5c7cdef771678068dc6.svg",
+                  "variant_ids": [
+                    80154,
+                    80155
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/625fb5c7310758aebd0d414e.svg",
+                  "variant_ids": [
+                    80156,
+                    80157
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/625fb6c656cd37ab240704bd.svg",
+                  "variant_ids": [
+                    80152,
+                    80153
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63d27f5f8251f5fc630f4eab.svg",
+                  "variant_ids": [
+                    96738,
+                    96739
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63d27f61ef426916f4044983.svg",
+                  "variant_ids": [
+                    96740,
+                    96741
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63d27f61ef426916f4044987.svg",
+                  "variant_ids": [
+                    96742,
+                    96743
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63ff1884c5519875010b5603.svg",
+                  "variant_ids": [
+                    96401,
+                    96402
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63ff1885c5519875010b5607.svg",
+                  "variant_ids": [
+                    96403,
+                    96404
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63ff1885c5519875010b560a.svg",
+                  "variant_ids": [
+                    96399,
+                    96400
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/63ff1885c5519875010b560d.svg",
+                  "variant_ids": [
+                    96397,
+                    96398
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675832689112699453019817.svg",
+                  "variant_ids": [
+                    98740,
+                    98741
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675832763e06c7b65904fd33.svg",
+                  "variant_ids": [
+                    98738,
+                    98739
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/650c01eb775f73096f0b6f07.svg",
+                  "variant_ids": [
+                    102547,
+                    102548
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/650c01f59afb60a90e0801a5.svg",
+                  "variant_ids": [
+                    102549,
+                    102550
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/650c01fd9afb60a90e0801a8.svg",
+                  "variant_ids": [
+                    102551,
+                    102552
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/650c02039afb60a90e0801ab.svg",
+                  "variant_ids": [
+                    102553,
+                    102554
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675831f908432dc4400c52d3.svg",
+                  "variant_ids": [
+                    105154,
+                    105155
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675832049112699453019814.svg",
+                  "variant_ids": [
+                    105156,
+                    105157
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/65ef086c65d4b6560a099434.svg",
+                  "variant_ids": [
+                    105148,
+                    105149
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/65ef0881923d22b0990423d6.svg",
+                  "variant_ids": [
+                    105150,
+                    105151
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/65ef089565d4b6560a099435.svg",
+                  "variant_ids": [
+                    105152,
+                    105153
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/66e7de7e31a4c81c7a02ada2.svg",
+                  "variant_ids": [
+                    112193,
+                    112194
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/66e1930d654fd61c34063442.svg",
+                  "variant_ids": [
+                    112195,
+                    112196
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/66e193150d1770b9d102c413.svg",
+                  "variant_ids": [
+                    112197,
+                    112198
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/66e1931c1e52a3682704a852.svg",
+                  "variant_ids": [
+                    112191,
+                    112192
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e6cda42ffafef50f2536.svg",
+                  "variant_ids": [
+                    116414,
+                    116415
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6757f010554ef251d80bd305.svg",
+                  "variant_ids": [
+                    116412,
+                    116413
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e6f58ebdb5fb35052a29.svg",
+                  "variant_ids": [
+                    116394,
+                    116395
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e70182b874f2b204fec7.svg",
+                  "variant_ids": [
+                    116392,
+                    116393
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e71682b874f2b204fec8.svg",
+                  "variant_ids": [
+                    116398,
+                    116399
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e7218ebdb5fb35052a2a.svg",
+                  "variant_ids": [
+                    116396,
+                    116397
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e72d82b874f2b204fec9.svg",
+                  "variant_ids": [
+                    116402,
+                    116403
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e739d500e8d25e06d238.svg",
+                  "variant_ids": [
+                    116400,
+                    116401
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e7478ebdb5fb35052a2b.svg",
+                  "variant_ids": [
+                    116410,
+                    116411
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e770780768e69f0a60f6.svg",
+                  "variant_ids": [
+                    116406,
+                    116407
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e78a780768e69f0a60f7.svg",
+                  "variant_ids": [
+                    116404,
+                    116405
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/6756e79882b874f2b204feca.svg",
+                  "variant_ids": [
+                    116408,
+                    116409
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675831ae2d7fa1ce140ebc86.svg",
+                  "variant_ids": [
+                    116390,
+                    116391
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675831b708432dc4400c52d2.svg",
+                  "variant_ids": [
+                    116386,
+                    116387
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/675831be2d7fa1ce140ebc87.svg",
+                  "variant_ids": [
+                    116388,
+                    116389
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/678e1a9e7b308ef86b0503b2.svg",
+                  "variant_ids": [
+                    117862,
+                    117863
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/679c6d2ba842ce633f09f3f2.svg",
+                  "variant_ids": [
+                    117864,
+                    117865
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/678e1adb6260282f3d0b8204.svg",
+                  "variant_ids": [
+                    117866,
+                    117867
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/68b96e93e95e82a76100ca33.svg",
+                  "variant_ids": [
+                    129873,
+                    129874
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/68b96f744060470e6e0a9522.svg",
+                  "variant_ids": [
+                    129875,
+                    129876
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/68b96fef8fd515a8e80fe5f2.svg",
+                  "variant_ids": [
+                    129877,
+                    129878
+                  ]
+                },
+                {
+                  "src": "https://images.printify.com/api/catalog/68b970d78c98a61bc30e5382.svg",
+                  "variant_ids": [
+                    129879,
+                    129880
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "versionId": "dd6d7a15-46ca-4d9d-8647-27f632180f6b",
+  "activeVersionId": null,
+  "versionCounter": 6,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-07-24T09:30:42.972Z",
+      "createdAt": "2025-07-24T09:30:42.972Z",
+      "role": "workflow:owner",
+      "workflowId": "1keiD2LrebeYxt6I",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T15:48:05.869Z",
+      "createdAt": "2025-12-18T15:48:05.869Z",
+      "id": "PKKqSH66xvEj4WGC",
+      "name": "tools"
+    }
+  ],
+  "activeVersion": null
+}
