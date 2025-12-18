@@ -1,0 +1,82 @@
+{
+  "updatedAt": "2025-12-16T04:55:44.672Z",
+  "createdAt": "2025-12-16T04:30:31.465Z",
+  "id": "gbZBtgGwMACZ4Jgz",
+  "name": "DevKit-deleteproducts",
+  "description": null,
+  "active": false,
+  "isArchived": true,
+  "nodes": [],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "02306e09-f85a-404e-afe4-fabde2c0e1dd",
+  "activeVersionId": null,
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-12-16T04:30:31.465Z",
+      "createdAt": "2025-12-16T04:30:31.465Z",
+      "role": "workflow:owner",
+      "workflowId": "gbZBtgGwMACZ4Jgz",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
