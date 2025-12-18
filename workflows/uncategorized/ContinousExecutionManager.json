@@ -1,0 +1,500 @@
+{
+  "updatedAt": "2025-10-09T08:56:24.927Z",
+  "createdAt": "2025-10-09T08:37:57.064Z",
+  "id": "MM696WCFlIuVssQU",
+  "name": "ContinousExecutionManager",
+  "description": null,
+  "active": true,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/rpop/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        16
+      ],
+      "id": "d1237cd9-d44e-498e-b0ae-d4a913db7df3",
+      "name": "PopJobAndProcess",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "012c1260-9c77-44aa-a153-2369b219ff9d",
+              "leftValue": "={{ $('PopJobAndProcess').item.json.result }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        16
+      ],
+      "id": "fa420da2-5764-4d29-9061-f1d7335f13d6",
+      "name": "Check if Job Exists"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "zINV1YNg4sVxtHHx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/zINV1YNg4sVxtHHx",
+          "cachedResultName": "02-Picasso-Beta"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "aae0423c-aa6a-489f-b1dc-7d90336a92d1",
+      "name": "Run Full Pipeline"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -704,
+        -64
+      ],
+      "id": "ea023e5c-df4b-4728-a053-0bf6e5474f8d",
+      "name": "Start Next Job"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/del/worker_slot_1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        176
+      ],
+      "id": "ad6e196b-a6fd-487c-8e70-b2a6fb8647c6",
+      "name": "Unlock Slot 1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/del/worker_slot_2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        192
+      ],
+      "id": "dffda291-c3f0-4116-b9ce-b1b108c4089a",
+      "name": "Unlock Slot 2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "PopJobAndProcess": {
+      "main": [
+        [
+          {
+            "node": "Check if Job Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Job Exists": {
+      "main": [
+        [
+          {
+            "node": "Run Full Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unlock Slot 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Next Job": {
+      "main": [
+        [
+          {
+            "node": "PopJobAndProcess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unlock Slot 1": {
+      "main": [
+        [
+          {
+            "node": "Unlock Slot 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "544831c9-504c-45e9-a2bb-13bd49a0d895",
+  "activeVersionId": "544831c9-504c-45e9-a2bb-13bd49a0d895",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-10-09T08:37:57.064Z",
+      "createdAt": "2025-10-09T08:37:57.064Z",
+      "role": "workflow:owner",
+      "workflowId": "MM696WCFlIuVssQU",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "544831c9-504c-45e9-a2bb-13bd49a0d895",
+    "workflowId": "MM696WCFlIuVssQU",
+    "nodes": [
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://honest-ghoul-37248.upstash.io/rpop/myfurryprints_queue",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -496,
+          16
+        ],
+        "id": "d1237cd9-d44e-498e-b0ae-d4a913db7df3",
+        "name": "PopJobAndProcess",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "012c1260-9c77-44aa-a153-2369b219ff9d",
+                "leftValue": "={{ $('PopJobAndProcess').item.json.result }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -288,
+          16
+        ],
+        "id": "fa420da2-5764-4d29-9061-f1d7335f13d6",
+        "name": "Check if Job Exists"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "zINV1YNg4sVxtHHx",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/zINV1YNg4sVxtHHx",
+            "cachedResultName": "02-Picasso-Beta"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "id": "aae0423c-aa6a-489f-b1dc-7d90336a92d1",
+        "name": "Run Full Pipeline"
+      },
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -704,
+          -64
+        ],
+        "id": "ea023e5c-df4b-4728-a053-0bf6e5474f8d",
+        "name": "Start Next Job"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://honest-ghoul-37248.upstash.io/del/worker_slot_1",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -176,
+          176
+        ],
+        "id": "ad6e196b-a6fd-487c-8e70-b2a6fb8647c6",
+        "name": "Unlock Slot 1",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://honest-ghoul-37248.upstash.io/del/worker_slot_2",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          48,
+          192
+        ],
+        "id": "dffda291-c3f0-4116-b9ce-b1b108c4089a",
+        "name": "Unlock Slot 2",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "PopJobAndProcess": {
+        "main": [
+          [
+            {
+              "node": "Check if Job Exists",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check if Job Exists": {
+        "main": [
+          [
+            {
+              "node": "Run Full Pipeline",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Unlock Slot 1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Start Next Job": {
+        "main": [
+          [
+            {
+              "node": "PopJobAndProcess",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Unlock Slot 1": {
+        "main": [
+          [
+            {
+              "node": "Unlock Slot 2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-10-09T08:56:24.927Z",
+        "id": 94,
+        "workflowId": "MM696WCFlIuVssQU",
+        "versionId": "544831c9-504c-45e9-a2bb-13bd49a0d895",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
