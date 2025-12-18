@@ -1,0 +1,708 @@
+{
+  "updatedAt": "2025-11-24T16:21:46.488Z",
+  "createdAt": "2025-11-24T16:21:36.529Z",
+  "id": "57TMaoShj8VwaBNE",
+  "name": "00-Thoth copy",
+  "description": null,
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/lpush/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"submission_id\": \"{{ $json.body.submission_id }}\",\n  \"customer_data\": {{ JSON.stringify($json.body.data) }},\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -848,
+        16
+      ],
+      "id": "3d5f4de4-1c1f-4660-9e3a-4bda31b19fb3",
+      "name": "AddToQueue",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "b78e050e-d310-484c-9660-499f80cd3840",
+        "options": {
+          "allowedOrigins": "*",
+          "binaryPropertyName": "images"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        16
+      ],
+      "id": "42d29932-952e-4761-ad76-c88bb913f7a5",
+      "name": "Webhook1",
+      "webhookId": "b78e050e-d310-484c-9660-499f80cd3840"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/set/worker_slot_1/{{ $('Webhook1').item.json.body.submission_id }}/NX/EX/7200",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -464,
+        16
+      ],
+      "id": "98cf90ea-1fc3-4296-b512-f2f18e078a35",
+      "name": "Try Lock Slot 1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/set/worker_slot_2/{{ $('Webhook1').item.json.body.submission_id }}/NX/EX/7200",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        288
+      ],
+      "id": "3cd4e806-02eb-4641-ab97-78ef8d8b2ee3",
+      "name": "Try Lock Slot 2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "23fe652b-d6ff-4ff9-a113-2124a0aafd8d",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -256,
+        16
+      ],
+      "id": "f4b7abcb-8f5a-4630-a2dd-76e46ec13972",
+      "name": "Did Slot 1 Lock?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0c8b442f-2222-40bb-81d6-5c93aa7f866a",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        288
+      ],
+      "id": "c06a1eeb-edd4-49f9-ad8f-e987dadb64ab",
+      "name": "Did Slot 2 Lock?"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sbikCUZ8YSTSByDN",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/sbikCUZ8YSTSByDN",
+          "cachedResultName": "01-Hagrid"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "034c48c4-79fd-406e-8c6c-272b6842c49c",
+      "name": "Start Worker 1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sbikCUZ8YSTSByDN",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/sbikCUZ8YSTSByDN",
+          "cachedResultName": "01-Hagrid"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        272
+      ],
+      "id": "8eb3b055-ab6a-4198-9384-9279a5f54501",
+      "name": "Start Worker 2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        304
+      ],
+      "id": "5d21e9d0-c3ab-49ce-87d9-250edef6709d",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "sendTo": "ameena.k@gauger.in, iamdanielsuresh@gmail.com, muhasin23@gmail.com",
+        "subject": "Client submission alert !",
+        "message": "=<div style=\"font-family: 'Arial', sans-serif; color: #333; line-height: 1.6; background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #eee; max-width: 600px;\">\n  \n  <!-- Header -->\n  <h2 style=\"font-size: 24px; margin-top: 0; color: #1a73e8; text-align: center;\">\n    📩 New Client Submission Received!\n  </h2>\n  \n  <!-- Subheader -->\n  <p style=\"font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 20px;\">\n    Hi Team 👋 — exciting update below!\n  </p>\n\n  <!-- Details Section -->\n  <div style=\"background-color: #ffffff; border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);\">\n    <p style=\"margin: 6px 0;\">\n      🕒 <strong>Submission received at:</strong> {{$json[\"body\"][\"created_at\"]}}\n    </p>\n    <p style=\"margin: 6px 0;\">\n      👤 <strong>Client name:</strong> {{$json[\"body\"][\"data\"][4][\"value\"]}} {{$json[\"body\"][\"data\"][5][\"value\"]}}\n    </p>\n    <p style=\"margin: 6px 0;\">\n      📧 <strong>Email address:</strong> {{$json[\"body\"][\"data\"][6][\"value\"]}}\n    </p>\n    <p style=\"margin: 6px 0;\">\n      🐾 <strong>Pet name:</strong> \n      <span style=\"font-size: 18px; font-weight: bold; color: #ff6f00;\">\n        {{$json[\"body\"][\"data\"][2][\"value\"]}}\n      </span>\n    </p>\n  </div>\n\n  <!-- Footer -->\n  <p style=\"margin-top: 20px; font-style: italic; font-weight: bold; color: #28a745; text-align: center;\">\n    Good luck, team! 💪✨\n  </p>\n</div>\n",
+        "options": {},
+        "path": "2b481b1f-2b4f-4418-b358-17f2081c9c21"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1104,
+        320
+      ],
+      "id": "ae8d2a05-296e-483b-8aa6-117225415d25",
+      "name": "Send a message1",
+      "webhookId": "2b481b1f-2b4f-4418-b358-17f2081c9c21",
+      "alwaysOutputData": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FsfUD7AAk7DNnm5t",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "43e45729-688b-4bc9-831d-96afd940ff73",
+              "name": "slot_id",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "4a359c5e-ed41-4c26-92b8-175f395205b2",
+              "name": "worker_token",
+              "value": "={{ $('Webhook1').item.json.body.submission_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        272
+      ],
+      "id": "71ec1b98-18d1-4d40-9942-6009fe53e211",
+      "name": "Set Slot ID 2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "685ced10-1aab-4d2a-8e80-c46fc2dd1816",
+              "name": "worker_token",
+              "value": "={{ $('Webhook1').item.json.body.submission_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c7fef7e7-2269-4de2-93f4-b0d641fd9e45",
+              "name": "slot_id",
+              "value": 1,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9f6b13ff-ad26-45eb-bb24-c8ebc6ec4843",
+      "name": "Set Slot ID1"
+    },
+    {
+      "parameters": {
+        "unit": "minutes",
+        "path": "0c328bd2-1049-4bad-9e60-0b1bc884a322"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        656,
+        272
+      ],
+      "id": "15bf6f37-cbaa-4184-a008-4bc7f087b14c",
+      "name": "Wait",
+      "webhookId": "0c328bd2-1049-4bad-9e60-0b1bc884a322"
+    }
+  ],
+  "connections": {
+    "AddToQueue": {
+      "main": [
+        [
+          {
+            "node": "Try Lock Slot 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "AddToQueue",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Try Lock Slot 1": {
+      "main": [
+        [
+          {
+            "node": "Did Slot 1 Lock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Slot 1 Lock?": {
+      "main": [
+        [
+          {
+            "node": "Set Slot ID1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Try Lock Slot 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Try Lock Slot 2": {
+      "main": [
+        [
+          {
+            "node": "Did Slot 2 Lock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Slot 2 Lock?": {
+      "main": [
+        [
+          {
+            "node": "Set Slot ID 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Worker 2": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Try Lock Slot 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Slot ID 2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Slot ID1": {
+      "main": [
+        [
+          {
+            "node": "Start Worker 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Start Worker 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "e3A2YjP2DNbrfl9C"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "primary-production-2739c.up.railway.app",
+            "user-agent": "Paperform/1.0",
+            "content-length": "3278",
+            "content-type": "application/json",
+            "x-forwarded-for": "44.202.182.91",
+            "x-forwarded-host": "primary-production-2739c.up.railway.app",
+            "x-forwarded-proto": "https",
+            "x-railway-edge": "railway/us-east4-eqdc4a",
+            "x-railway-request-id": "KANpZlUXQRe7j5C8PvyhXg",
+            "x-real-ip": "44.202.182.91",
+            "x-request-start": "1763467999651",
+            "accept-encoding": "gzip"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "data": [
+              {
+                "title": "Who is your furry friend ? ",
+                "description": "",
+                "type": "choices",
+                "key": "tjhn",
+                "custom_key": null,
+                "value": "Cat"
+              },
+              {
+                "title": "What is your pet's sex?",
+                "description": null,
+                "type": "choices",
+                "key": "70foo",
+                "custom_key": null,
+                "value": "Female"
+              },
+              {
+                "title": "Your pet's name",
+                "description": "",
+                "type": "text",
+                "key": "1pl93",
+                "custom_key": null,
+                "value": "Catty - Test"
+              },
+              {
+                "title": "Pet photos",
+                "description": "Please upload 4 to 6 pictures of your pet",
+                "type": "image",
+                "key": "8objr",
+                "custom_key": null,
+                "value": [
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-18/8g73ejd/shared%20image%205.jpeg?expires=1764072797&signature=29b6ff1cba362d58cef95d905b766d40eaf97a099ccae59750300e36bab0a4a4",
+                    "name": "shared image (5).jpeg",
+                    "type": "image/jpeg",
+                    "size": 379443,
+                    "width": 1536,
+                    "height": 2048
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-18/7v53en5/shared%20image%203.jpeg?expires=1764072797&signature=8e3529bee92cd31ede9a9f3dcb6c1f2241ac416874ce5142c810e309a19a8050",
+                    "name": "shared image (3).jpeg",
+                    "type": "image/jpeg",
+                    "size": 446420,
+                    "width": 1536,
+                    "height": 2048
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-18/7p43enf/shared%20image%204.jpeg?expires=1764072797&signature=7cf3280c23b916592523acc0236257468e378948bdc1dcec4ff7071727316ecb",
+                    "name": "shared image (4).jpeg",
+                    "type": "image/jpeg",
+                    "size": 372034,
+                    "width": 1536,
+                    "height": 2048
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-11-18/7v63e5u/shared%20image%208.jpeg?expires=1764072797&signature=2d46e7a1cf647bb45f4956acc28b7a746acd7c98ab47712d66a357d7b7ef7080",
+                    "name": "shared image (8).jpeg",
+                    "type": "image/jpeg",
+                    "size": 559729,
+                    "width": 1536,
+                    "height": 2048
+                  }
+                ]
+              },
+              {
+                "title": "First name",
+                "description": "",
+                "type": "text",
+                "key": "84g9u",
+                "custom_key": null,
+                "value": "Daniel"
+              },
+              {
+                "title": "Last name",
+                "description": "",
+                "type": "text",
+                "key": "b6vtr",
+                "custom_key": null,
+                "value": "Suresh"
+              },
+              {
+                "title": "Email",
+                "description": "",
+                "type": "email",
+                "key": "aohp1",
+                "custom_key": null,
+                "value": "danielsureshkm@gmail.com"
+              },
+              {
+                "title": "Phone (optional)",
+                "description": "We'll text you when artwork is ready",
+                "type": "phone",
+                "key": "455ij",
+                "custom_key": null,
+                "value": "+44 7xxx xxxxxx"
+              },
+              {
+                "title": "What is your phone model?",
+                "description": "Used to show your pet’s artwork on a phone case",
+                "type": "dropdown",
+                "key": "7850r",
+                "custom_key": null,
+                "value": "iPhone 16 Plus"
+              }
+            ],
+            "form_id": "68fef990cb82f9eaea026003",
+            "slug": "rri1q8ik",
+            "submission_id": "691c62ddf00d1df0c7033268",
+            "created_at": "2025-11-18 12:13:17",
+            "ip_address": "111.92.67.68",
+            "charge": {
+              "products": [],
+              "summary": "",
+              "discount": 0,
+              "discounted_subscriptions": [],
+              "coupon": false,
+              "total": 0,
+              "total_cents": 0,
+              "tax": 0,
+              "tax_percentage": 0,
+              "processing_fee": 0,
+              "authorize": null,
+              "receipt_email": false
+            },
+            "team_id": 474237,
+            "trigger": "submission",
+            "device": {
+              "type": "desktop",
+              "device": "Macintosh",
+              "platform": "OS X",
+              "browser": "Safari",
+              "embedded": false,
+              "url": "https://rri1q8ik.paperform.co/",
+              "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15",
+              "utm_source": null,
+              "utm_medium": null,
+              "utm_campaign": null,
+              "utm_term": null,
+              "utm_content": null,
+              "ip_address": "111.92.67.68"
+            }
+          },
+          "webhookUrl": "https://primary-production-2739c.up.railway.app/webhook/experiment",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "versionId": "a5f91632-2133-4a9b-89e2-63d858ff05c7",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2025-11-24T16:21:36.529Z",
+      "createdAt": "2025-11-24T16:21:36.529Z",
+      "role": "workflow:owner",
+      "workflowId": "57TMaoShj8VwaBNE",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
