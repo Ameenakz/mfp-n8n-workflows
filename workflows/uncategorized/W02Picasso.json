@@ -1,0 +1,1955 @@
+{
+  "updatedAt": "2025-06-17T18:53:37.284Z",
+  "createdAt": "2025-06-15T17:26:49.939Z",
+  "id": "1Fc8sgYUZKBvFUgp",
+  "name": "W02Picasso",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Get all items from the merge node\nconst items = $input.all();\n\n// Find the item with the binary data (from Code5)\nlet binaryData = null;\nitems.forEach(item => {\n  if (item.binary && Object.keys(item.binary).length > 0) {\n    binaryData = item.binary;\n  }\n});\n\n// Find the prompt items (from the Code parser)\nconst promptItems = items.filter(item => item.json.promptIndex);\n\n// Create a new item for each prompt with the binary data\nreturn promptItems.map(item => {\n  return {\n    json: {\n      promptIndex: item.json.promptIndex,\n      prompt: item.json.prompt\n    },\n    binary: binaryData\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        680
+      ],
+      "id": "1f16524b-9abd-4dd2-aa9d-f51cd82562c2",
+      "name": "Distribute_images"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/edits",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-image-1"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "=image0"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "image1"
+            },
+            {
+              "name": "=n",
+              "value": "={{ $json.n }}"
+            },
+            {
+              "name": "quality",
+              "value": "={{ $json.quality }}"
+            },
+            {
+              "name": "size",
+              "value": "={{ $json.size }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "image2"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "image3"
+            },
+            {
+              "name": "output_format",
+              "value": "={{ $json.output_format }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2560,
+        680
+      ],
+      "id": "4511a51f-abe6-45fc-9635-c479334f016c",
+      "name": "Edit Image",
+      "retryOnFail": false,
+      "waitBetweenTries": 5000,
+      "maxTries": 2,
+      "executeOnce": false,
+      "credentials": {
+        "openAiApi": {
+          "id": "bW0dWuK2BcJ9Uw2Z",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data[0].b64_json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2800,
+        680
+      ],
+      "id": "b888df2e-f3b7-413c-89b5-1818ad428210",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nlet editRequest = \"modify\"; // Default\nconst imageData = [];\n\n// Adjust based on actual Paperform keys\nif (body.data && Array.isArray(body.data)) {\n  body.data.forEach(field => {\n    // There’s no 'petDescription' in the sample input, so default stays\n    // Update key if that field is later added to the form\n    \n    if (field.key === '8objr' && Array.isArray(field.value)) {\n      // 8objr = Pet Photos\n      field.value.forEach((photo, index) => {\n        if (photo.url) {\n          imageData.push({\n            url: photo.url,\n            filename: photo.name || `image${index}.jpeg`,\n            mimeType: photo.type || 'image/jpeg',\n            index: index\n          });\n        }\n      });\n    }\n  });\n}\n\n// Return individual items for each image\nreturn imageData.map(img => ({\n  json: {\n    imageUrl: img.url,\n    imageName: img.filename,\n    imageType: img.mimeType,\n    imageIndex: img.index,\n    totalImages: imageData.length,\n    requestType: \"Modify my Product Image\",\n    editRequest: editRequest,\n    submittedAt: new Date().toISOString(),\n    session_id: body.submission_id || \"unknown\"\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        700
+      ],
+      "id": "9bbd6ecc-f37d-4919-8d7a-4ee5dc551455",
+      "name": "Parser1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        700
+      ],
+      "id": "2becffc5-565f-41b2-9816-014f2339ce0e",
+      "name": "Download_images"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\nconst item = $input.item; // Current item being processed\n\n// Create a copy of binary data to modify\nconst binaryData = {};\nif (item.binary) {\n  // Fix MIME types for all binary properties\n  for (const key in item.binary) {\n    binaryData[key] = {...item.binary[key]};\n    \n    // Ensure all jpg images use the correct mime type\n    if (binaryData[key].mimeType === 'image/jpg') {\n      binaryData[key].mimeType = 'image/jpeg';\n    }\n  }\n}\n\n// Create a new output item with both the prompt and binary data\nreturn {\n  json: {\n    promptIndex: item.json.promptIndex,\n    prompt: item.json.prompt,\n    n: 1,\n    quality: \"high\",//medium,high, auto\n    size: \"1024x1536\",\n    output_format: \"jpeg\",\n    email:$json.email\n  },\n  binary: binaryData // Use the corrected binary data\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        680
+      ],
+      "id": "5c8741cc-96ba-465e-8fa1-ac0d589f4213",
+      "name": "set_imageQUALITY"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/myfurryprints/image/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "public_id",
+              "value": "={{ $json.customFilename }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "upload_preset",
+              "value": "n8n-generations"
+            },
+            {
+              "name": "folder",
+              "value": "={{ $json.session_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3440,
+        360
+      ],
+      "id": "4be85ee1-d999-4bbc-8478-311ea8956c6a",
+      "name": "UploadTOCloudery",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ZwQuXy3mFoa7bh3H",
+          "name": "cloudinaryFurryPrints"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9a09c669-1cb9-44bc-9da8-00ef3ec54dee",
+              "name": "session_id",
+              "value": "={{ $json.body.submission_id }}",
+              "type": "string"
+            },
+            {
+              "id": "47327c4e-0fe4-4aa5-8a38-0d99e641bdc3",
+              "name": "customer_name",
+              "value": "={{ $json.body.data[4].value }} {{ $json.body.data[5].value }}",
+              "type": "string"
+            },
+            {
+              "id": "1117f85f-c597-444e-87cb-97cece4eb659",
+              "name": "email",
+              "value": "={{ $json.body.data[6].value }}",
+              "type": "string"
+            },
+            {
+              "id": "2f007b58-3fe0-4d48-bf90-43a61f0d4b2d",
+              "name": "petname",
+              "value": "={{ $json.body.data[2].value }}",
+              "type": "string"
+            },
+            {
+              "id": "56b08dbf-6695-4944-87e0-bb031d9e07b8",
+              "name": "petKind",
+              "value": "={{ $json.body.data[0].value }}",
+              "type": "string"
+            },
+            {
+              "id": "f53102c8-ae2e-4909-ba5b-8755bb93669a",
+              "name": "petGender",
+              "value": "={{ $json.body.data[1].value }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "25106d0b-56b9-4984-85e2-cf29ed0e2640",
+      "name": "Extract Parameters"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In the Code3 node, update to include submissionId\nconst items = $input.all();\nconst binaryOutput = {};\nconst imageFiles = [];\nconst submissionId = items[0]?.json?.submissionId || 'default';\n\n// Process all items with downloads\nitems.forEach((item, index) => {\n  if (item.binary && item.binary.data) {\n    // Copy binary data with the correct key name\n    binaryOutput[`image${index}`] = item.binary.data;\n    \n    // Build image metadata\n    imageFiles.push({\n      index: index,\n      filename: item.json.imageName || `image${index}.jpg`,\n      mimeType: item.json.imageType || 'image/jpeg'\n    });\n  }\n});\n\n// Get metadata from the first item\nconst firstItem = items[0] || {};\nconst metadata = {\n  requestType: firstItem.json?.requestType || \"Modify my Product Image\",\n  editRequest: firstItem.json?.editRequest || \"modify\",\n  imageCount: imageFiles.length,\n  imageFiles: imageFiles,\n  submittedAt: firstItem.json?.submittedAt || new Date().toISOString(),\n  submissionId: submissionId\n};\n\n// Return a single item with all image data\nreturn [{\n  json: metadata,\n  binary: binaryOutput\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        700
+      ],
+      "id": "eb4b3b42-c61a-457b-a1c0-134b681ff54d",
+      "name": "Prepare Image Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI Prompts node - FULLY DYNAMIC version\nconst raw = $input.first().json.output;\n\n// Step 1: Clean markdown formatting if present\nlet cleaned = raw.replace(/```json\\n?|```/gi, '').trim();\n\n// Step 2: Fix common JSON issues\ncleaned = cleaned.replace(/,(\\s*})/, '$1');\ncleaned = cleaned.replace(/,(\\s*])/, '$1');\n\n// Step 3: Parse JSON\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error('❌ Failed to parse AI prompts JSON: ' + e.message + '\\n\\nRaw content:\\n' + cleaned);\n}\n\n// Step 4: FULLY DYNAMIC theme mapping from Set Prompts node\nconst setPromptsData = $('Set Prompts').first().json;\n\n// Extract theme mapping dynamically from Set Prompts assignments\nconst themeMapping = {};\nconst metadataFields = ['session_id', 'customer_name', 'email', 'petname', 'petKind', 'petGender', 'imageCount', 'imageFiles', 'requestType', 'editRequest', 'submittedAt', 'submissionId'];\n\n// Build dynamic theme mapping from Set Prompts assignments\nlet themeIndex = 1;\nObject.keys(setPromptsData).forEach(key => {\n  // Skip metadata fields\n  if (metadataFields.includes(key)) {\n    return;\n  }\n  \n  // This is a theme assignment - map it dynamically\n  const themeName = key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());\n  \n  themeMapping[themeIndex] = {\n    name: themeName,\n    key: key,\n    description: setPromptsData[key]\n  };\n  \n  themeIndex++;\n});\n\n// Step 5: Dynamically handle any number of prompts\nconst results = [];\nconst promptKeys = Object.keys(parsed).filter(key => key.startsWith('prompt'));\n\n// Sort prompt keys to ensure correct order\npromptKeys.sort((a, b) => {\n  const numA = parseInt(a.replace('prompt', ''));\n  const numB = parseInt(b.replace('prompt', ''));\n  return numA - numB;\n});\n\n// Create output for each prompt with theme information\npromptKeys.forEach((key, index) => {\n  const promptNumber = parseInt(key.replace('prompt', ''));\n  const themeInfo = themeMapping[promptNumber] || { \n    name: `Theme ${promptNumber}`, \n    key: `THEME_${promptNumber}`,\n    description: `Unknown theme ${promptNumber}`\n  };\n  \n  results.push({\n    json: {\n      promptIndex: promptNumber,\n      prompt: parsed[key] || '',\n      theme_name: themeInfo.name,\n      themeKey: themeInfo.key,\n      themeDescription: themeInfo.description\n    }\n  });\n});\n\n// Validation: Check if we have the expected number of prompts\nconst expectedThemeCount = Object.keys(themeMapping).length;\nconsole.log(`✅ Successfully parsed ${results.length} prompts for ${expectedThemeCount} themes`);\n\n// Log theme assignments for debugging\nresults.forEach(result => {\n  console.log(`Prompt ${result.json.promptIndex}: ${result.json.theme_name} (${result.json.themeKey})`);\n});\n\n// Additional validation\nif (results.length !== expectedThemeCount) {\n  console.warn(`⚠️ Mismatch: Expected ${expectedThemeCount} prompts but parsed ${results.length}. AI may have generated different number of prompts.`);\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        700
+      ],
+      "id": "1241412f-7bfb-4877-be57-abf9a0cf099e",
+      "name": "Parse AI Prompts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Prepare Cloudinary Upload\" (ID: 1abb99e0-ebc5-4267-947e-96ca35aae957)\nconst allMergedItems = $input.all();\nconst outputItems = [];\n\n// Find the customer data item (should be the one without binary from Extract Parameters)\nconst userDataItem = allMergedItems.find(item => item.json && item.json.email && !item.binary);\n// Filter out the binary image items (outputs of Convert to File1)\nconst binaryImageItems = allMergedItems.filter(item => item.binary && Object.keys(item.binary).length > 0);\n\n// Fetch all parsed prompt details (which include theme_name) from 'Parse AI Prompts1'\n// This node's output is a list of items, each with { json: { promptIndex, prompt, theme_name } }\nconst allParsedPrompts = $('Parse AI Prompts').all();\n\nif (!userDataItem) {\n  return [{ json: { error: \"User data not found in merged input for Prepare Cloudinary Upload.\" } }];\n}\nconst customerData = userDataItem.json;\n\nif (binaryImageItems.length === 0) {\n  return [{ json: { error: \"No binary image items found for Prepare Cloudinary Upload.\" } }];\n}\nif (allParsedPrompts.length === 0) {\n  return [{ json: { error: \"No parsed prompts found from 'Parse AI Prompts1' node.\" } }];\n}\n// Optional: Log a warning if counts don't match, but proceed by index.\nif (binaryImageItems.length !== allParsedPrompts.length) {\n  console.warn(`Warning: Mismatch in count. Binary images: ${binaryImageItems.length}, Parsed prompts: ${allParsedPrompts.length}. Processing based on index.`);\n}\n\nbinaryImageItems.forEach((binaryItem, index) => {\n  // Find the main binary data key (e.g., 'data' if ConvertToFile1 outputs that)\n  const binaryKey = Object.keys(binaryItem.binary).find(key =>\n    binaryItem.binary[key].mimeType?.startsWith('image/'));\n\n  if (binaryKey) {\n    // Assume binaryImageItems are in the same order as prompts (promptIndex 1, 2, 3...).\n    // The 'index' here is 0-based. promptIndex is 1-based.\n    const currentPromptIndex = index + 1;\n    const matchingParsedPromptItem = allParsedPrompts.find(p => p.json.promptIndex === currentPromptIndex);\n\n    let themeName = `Theme ${currentPromptIndex}`; // Default theme name\n    if (matchingParsedPromptItem && matchingParsedPromptItem.json.theme_name) {\n      themeName = matchingParsedPromptItem.json.theme_name;\n    } else {\n      console.warn(`Prepare Cloudinary Upload: No matching prompt data found for binary image at index ${index} (intended promptIndex ${currentPromptIndex}). Using default theme name: ${themeName}`);\n    }\n\n    const session_id = customerData.session_id;\n    const customFilename = `${session_id}_prompt${currentPromptIndex}`;\n\n    outputItems.push({\n      json: {\n        // Customer data\n        session_id: session_id,\n        email: customerData.email,\n        petname: customerData.petname,\n        petKind: customerData.petKind,\n        customer_name: customerData.customer_name,\n        // Prompt-specific data\n        promptIndex: currentPromptIndex,\n        theme_name: themeName, // Dynamic theme name\n        customFilename: customFilename\n      },\n      binary: {\n        // Ensure the key 'data' is what Cloudinary expects for the 'file' parameter\n        data: binaryItem.binary[binaryKey]\n      }\n    });\n  } else {\n    console.warn(`Prepare Cloudinary Upload: No valid binary key found for item at index ${index}.`);\n  }\n});\n\nif (outputItems.length === 0 && binaryImageItems.length > 0) {\n    return [{ json: { error: \"No binary data could be processed in Prepare Cloudinary Upload.\" } }];\n}\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3220,
+        360
+      ],
+      "id": "d86fbadd-5465-4da6-a638-6739c14d96ee",
+      "name": "Prepare Cloudinary Upload"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        1920,
+        680
+      ],
+      "id": "5e3d4e53-3774-4a64-baa3-9b8972a8847d",
+      "name": "Merge Prompts With Images"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        880,
+        320
+      ],
+      "id": "a07f1ab1-b913-4aae-b4d6-6dabfe278d28",
+      "name": "Merge Customer Data With Images"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        3000,
+        360
+      ],
+      "id": "a721c595-d15d-41fc-bbc6-699620a89eb4",
+      "name": "Merge Upload Data"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        4120,
+        300
+      ],
+      "id": "cce0a461-8c33-462c-8e56-e9aafeab8f62",
+      "name": "Merge Customer With Transformations"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1340,
+        900
+      ],
+      "id": "bbb7be69-49d7-4691-b5f8-83f432e651f7",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "bW0dWuK2BcJ9Uw2Z",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.dynamicPromptText }}",
+        "options": {
+          "systemMessage": "=You are a **Professional Pet Feature Extraction Agent** specializing in photorealistic image generation with themed overlays for premium artwork creation.\n\n**CRITICAL IMAGE FILTERING REQUIREMENT**: \nYou must ONLY process and analyze images that clearly contain pets (dogs, cats, or other domestic animals). If you encounter any images that do not contain pets, you must ignore them completely and only work with the pet images provided. Do not describe, analyze, or reference any non-pet images in your output.\n\n**PET INFORMATION CONTEXT:**\nBefore analyzing the images, note the following confirmed information about this pet:\n- Pet Type: {{ $json.petKind }}  \n- Pet Gender: {{ $json.petGender }}\n\nUse this metadata to:\n1. Ensure correct pronoun usage throughout all prompts (he/him for males, she/her for females, they/them if unspecified)\n2. Apply breed-specific knowledge if the pet type provides breed information\n3. Cross-reference your visual analysis with the confirmed pet type\n\n**ARTWORK CONTEXT**: These images are being created as high-quality artwork pieces that users will print and display in their homes. Therefore, every image must be composed with beautiful, frame-worthy aesthetics that would look stunning when printed and hung on a wall.\n\n**YOUR CORE TASK**: \n1. Analyze ONLY the uploaded pet images to extract detailed visual features\n2. Take each provided theme prompt and ENHANCE it by integrating the specific pet details\n3. Create comprehensive prompts that are: **Original Theme + Detailed Pet Features**\n\n### Pet Feature Extraction Process:\nCarefully analyze ALL provided pet images and extract these specific details:\n\n**PHYSICAL CHARACTERISTICS:**\n- **Breed**: Exact breed or breed mix (e.g., \"Golden Retriever mix,\" \"tabby cat,\" \"German Shepherd\")\n- **Size & Build**: Body proportions, weight appearance, overall build\n- **Fur/Coat**: \n  - Texture (fluffy, short-haired, curly, wiry, silky)\n  - Length (long, medium, short)\n  - Density (thick, thin, double-coat)\n- **Color Patterns**: \n  - Primary colors with specific shades (golden brown, cream, black, white, gray, etc.)\n  - Secondary colors and markings\n  - Distinctive patterns (spots, stripes, patches, socks, masks)\n  - Color distribution (where each color appears)\n\n**FACIAL FEATURES:**\n- **Eyes**: Color, shape, size, expression (bright blue, amber, dark brown, almond-shaped, etc.)\n- **Ears**: Shape, position, size (floppy, pointed, cropped, natural)\n- **Nose**: Color and shape (black, pink, spotted)\n- **Muzzle**: Length and shape (long, short, square, pointed)\n- **Facial markings**: Masks, blazes, eye patches, etc.\n\n**DISTINCTIVE FEATURES:**\n- **Unique markings**: Scars, birthmarks, unique color patterns\n- **Tail**: Length, shape, curl, fluffiness\n- **Paws**: Color, markings, size\n- **Any other distinguishing characteristics** that make this pet instantly recognizable\n\n### Prompt Enhancement Strategy:\nFor each theme, follow this formula:\n**ENHANCED PROMPT = Original Theme Description + Detailed Pet Integration + Quality Specifications**\n\n**Example Structure:**\n```\n[Original theme scenario], featuring a [detailed breed description] with [specific fur description], [distinctive facial features], and [unique markings]. The {{ $json.petGender }} {{ $json.petKind }} has [eye color] eyes, [ear description], and [any other distinctive features]. The pet [continues theme scenario with pet integrated using correct pronouns]. [Quality specifications for professional photography].\n```\n\n### Image Quality Requirements:\nEvery enhanced prompt MUST include:\n- **Photorealistic rendering**: \"photorealistic, high-resolution, professional photography style\"\n- **Frame-worthy composition**: \"beautiful composition with balanced framing perfect for wall art display\"\n- **Professional lighting**: Specify appropriate lighting (natural soft lighting, golden hour, studio lighting)\n- **Camera specifications**: \"sharp focus,\" \"professional portrait photography,\" \"shallow depth of field\" when appropriate\n- **Detail quality**: \"ultra-detailed,\" \"lifelike,\" \"gallery-quality,\" \"individual fur strands visible\"\n- **Print specifications**: \"high resolution suitable for large format printing\"\n\n**AVOID**: Any cartoon, illustration, animated, or stylized terms\n\n### Dynamic Theme Configuration:\nThe workflow provides themes dynamically through the Set Prompts node. The number of themes can vary and will be automatically detected. You must generate prompts for ALL provided themes, regardless of how many there are.\n\n### Output Format:\nGenerate a JSON object with prompts numbered sequentially for EACH PROVIDED THEME. The number of prompts will match the number of themes provided in the input:\n\n**For Dynamic Theme Count:**\n- If 3 themes provided → Generate prompt1, prompt2, prompt3\n- If 4 themes provided → Generate prompt1, prompt2, prompt3, prompt4\n- If 5 themes provided → Generate prompt1, prompt2, prompt3, prompt4, prompt5\n- And so on...\n\n**JSON Structure Example (adapt based on actual number of themes):**\n```json\n{\n  \"prompt1\": \"[Original Theme 1] featuring a [detailed pet description with all extracted features]. The {{ $json.petGender }} {{ $json.petKind }} has [specific characteristics]. The pet [continues theme scenario with pet integrated using he/his for males, she/her for females]. Beautiful composition with balanced framing perfect for wall art display. Ultra-detailed, lifelike, gallery-quality, photorealistic professional photography style with [appropriate lighting] and sharp focus.\",\n  \"prompt2\": \"[Original Theme 2] featuring a [detailed pet description with all extracted features]. The {{ $json.petGender }} {{ $json.petKind }} has [specific characteristics]. The pet [continues theme scenario with pet integrated using correct pronouns]. Beautiful composition with balanced framing perfect for wall art display. Ultra-detailed, lifelike, gallery-quality, photorealistic professional photography style with [appropriate lighting] and sharp focus.\",\n  \"promptN\": \"[Original Theme N] featuring a [detailed pet description with all extracted features]. The {{ $json.petGender }} {{ $json.petKind }} has [specific characteristics]. The pet [continues theme scenario with pet integrated using correct pronouns]. Beautiful composition with balanced framing perfect for wall art display. Ultra-detailed, lifelike, gallery-quality, photorealistic professional photography style with [appropriate lighting] and sharp focus.\"\n}\n```\n\n**DYNAMIC REQUIREMENT**: Always generate exactly the same number of prompts as themes provided in the input. Count the themes carefully and ensure your JSON output matches.\n\n**CRITICAL REQUIREMENTS**: \n- Each prompt must be detailed enough that someone who has never seen this pet could recognize them from the generated image\n- Include specific colors, markings, breed characteristics, and distinctive features\n- Seamlessly integrate pet details into the themed scenarios\n- Maintain the humor and creative elements of each original theme\n- Each enhanced prompt should be comprehensive (150-250 words) to ensure all pet details and theme elements are captured\n- Use the provided pet metadata (petKind, petGender) to ensure accurate and personalized prompts\n- ONLY analyze and reference pet images - ignore any non-pet content\n- For {{ $json.petGender }} = \"Male\", use he/him/his pronouns\n- For {{ $json.petGender }} = \"Female\", use she/her/hers pronouns\n\n**PROMPT LENGTH**: Each enhanced prompt should be comprehensive enough to ensure all pet details and theme elements are captured for high-quality image generation while maintaining the creative and humorous aspects of the original themes.\n\nFocus on creating prompts that will generate images where the pet is completely recognizable with distinctive features intact while being seamlessly integrated into the thematic settings, suitable for premium wall art display."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        1340,
+        700
+      ],
+      "id": "d9785fb0-05b8-46ad-a807-cc2db49cdc3e",
+      "name": "Feature Extraction Agent1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b9c416ad-8567-4398-bfc0-0a698641b5fb",
+              "name": "Spa Day Deluxe",
+              "value": "Create image Create a humorous, photorealistic image of my pet enjoying an extravagant spa day. He should be sitting or lying comfortably on a plush spa table, fully wrapped in fluffy white towels, including a towel elegantly wrapped around his head like a turban. Place slices of cucumber gently over his eyes. Surround him with steaming spa decor: large lit candles, soft warm lighting, gentle mist, and leafy greenery in the background. Ensure the scene feels like a luxury spa magazine photo—serene yet comical. Focus on a centered portrait composition, capturing vivid detail in fur texture, towel folds, steam effects, and the dog’s relaxed, pampered expression.",
+              "type": "string"
+            },
+            {
+              "id": "6aeb6e6a-e446-4443-897e-d1bb22fcb374",
+              "name": "Midnight Snack",
+              "value": "Create image Generate a photorealistic image capturing my pet tiptoeing stealthily towards the refrigerator at midnight, the fridge door already open with its light dramatically illuminating his guilty face. He is wearing fuzzy slippers and pajamas, paw halfway inside a cake box. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            },
+            {
+              "id": "efbe2046-a8cc-4564-8d0c-3e9678e01cf9",
+              "name": "Victorian Portrait",
+              "value": "Create image Portray my pet as an elegant royal figure from the Victorian era, sitting regally on a velvet throne, wearing a luxurious embroidered robe and a golden crown, depicted in classic oil painting style with warm, rich colors and intricate details. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            },
+            {
+              "id": "30fc7cd9-e639-4ad6-94c7-f8fa0ab4cf44",
+              "name": "Harry Dogger",
+              "value": "Create image Turn my pet into a Hogwarts student from the Harry Potter universe, proudly wearing Gryffindor house robes and scarf, surrounded by magical elements such as floating candles, potion books, a wand, and enchanted objects. Set the scene within Hogwarts’ warm, candlelit Great Hall, capturing the whimsical and magical atmosphere typical of the Harry Potter movies and books. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            },
+            {
+              "id": "23c1ec30-6b36-493c-a80f-f73f72ac42ab",
+              "name": "Corporate Pet",
+              "value": "Create image Create a funny and photorealistic image of my pet seated professionally behind an executive desk, wearing stylish glasses, a business suit, and paw resting thoughtfully on a keyboard. Surround his with office details—laptop, coffee mug labeled \"World's Best Boss,\" stacks of paper, and 3 yellow sticky notes (one is written \"Cancel the vet\", another is written \"Order more treats\" and the third one is written \"Nap after lunch\"). Capture his expression as focused yet adorably overwhelmed. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            },
+            {
+              "id": "63d9ad28-5bd4-4f82-b3e1-01b53882e7ea",
+              "name": "Home Yoga",
+              "value": "Create image Depict my pet humorously performing a yoga pose (downward dog pose) on a yoga mat, wearing trendy yoga pants and a sweatband, in a calm, serene yoga studio with candles, incense, and lush plants. His expression should look peaceful yet slightly humorous, perfectly balancing realism and comedy. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            },
+            {
+              "id": "0e8016c9-0d38-42f8-8f55-faa87695ccf0",
+              "name": "Game of Thrones",
+              "value": "Create image A photorealistic digital painting of my pet depicted as a noble warrior in the Game of Thrones universe. The pet is sitting regally on the Iron Throne, wearing intricately engraved dark steel medieval armor with leatHis straps and embossed chest plating. Draped over its shoulders is a thick black fur-lined cloak that blends into the dramatic lighting of the dim throne room. The the eyes of my pet stare forward with commanding authority, its expression calm and resolute. Snowflakes drift through the cold air inside the stone chamber, faintly illuminated by the soft orange glow of wall-mounted torches. The Iron Throne looms behind my pet, forged from twisted swords, with shadowed edges and icy texture. The overall scene is dark, cinematic, and richly textured, evoking the atmosphere of Winterfell or the Night's Watch from the TV series, with high detail, moody shadows, and a fantasy epic tone. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            },
+            {
+              "id": "c787f5e1-12d3-4916-8d91-236112604492",
+              "name": "Morning Coffee",
+              "value": "Create image Generate a humorous photorealistic image of my pet casually sitting at a breakfast table, wrapped in a cozy bathrobe, paws around a steaming coffee cup, newspaper or tablet in front of him. Capture a relaxed, slightly sleepy morning vibe, perfectly mimicking a human's routine with realistic detail. Do not use elements from the previously created images. Portrait mode.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        360,
+        700
+      ],
+      "id": "44a97861-1b15-49eb-90f5-4c673acf9ac3",
+      "name": "Set Prompts"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// In \"Transformation\" (ID: 3206a9f0-c977-4669-aae0-33983e3e4c23)\n// Input item is the output of \"Combine Cloudinary with Details\"\nconst combinedItemJson = $input.item.json;\n\nconst publicId = combinedItemJson.public_id; // From Cloudinary part of combinedItemJson\nconst cloudName = \"myfurryprints\";\nconst maskId = \"Mask3larger_jpm63l\"; // Ensure this mask ID is correct\n\nconst imageTransformations = {\n  clothing: `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/l_${maskId},w_4000,fl_cutter/${publicId}`,\n  other: `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/${publicId}`\n};\n\n// Pass through all fields from combinedItemJson and add/overwrite transformation URLs\nreturn {\n  json: {\n    ...combinedItemJson, // This includes Cloudinary data AND original details like theme_name, promptIndex, email etc.\n    original_url: combinedItemJson.secure_url, // Using secure_url from Cloudinary for consistency\n    collection_image_url: combinedItemJson.secure_url,\n    transformations: imageTransformations,\n    clothing_url: imageTransformations.clothing,\n    other_url: imageTransformations.other\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        360
+      ],
+      "id": "57d6c219-def6-40e3-bc01-a295260115ae",
+      "name": "Transformation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node Name: Combine Cloudinary with Details\n// Mode: Run Once For All Items\n\n// All Cloudinary responses from the UploadTOCloudery node\nconst cloudinaryResponses = $input.all();\n\n// All original items that were the input to UploadTOCloudery\n// These are the outputs of the 'Prepare Cloudinary Upload' node from its last full run.\nconst allOriginalDetailsItems = $('Prepare Cloudinary Upload').all();\n\nif (cloudinaryResponses.length === 0) {\n  console.warn(\"Combine Cloudinary: No Cloudinary responses received.\");\n  return [];\n}\nif (allOriginalDetailsItems.length === 0) {\n  console.error(\"Combine Cloudinary: No original details found from 'Prepare Cloudinary Upload'. Cannot merge.\");\n  // Return items indicating error or an empty array\n  return cloudinaryResponses.map(cr => ({ json: { ...cr.json, error: \"Missing original details for merging.\" } }));\n}\n\nconst outputItems = [];\n\ncloudinaryResponses.forEach((cloudinaryItem, loopIndex) => {\n  const cloudinaryResponseJson = cloudinaryItem.json; // This is the actual Cloudinary API response data\n\n  let matchingOriginalDetails = null;\n\n  // Strategy 1: Match using public_id (from Cloudinary) and customFilename (from original details)\n  // Cloudinary public_id is often \"folder/customFilename\" or just \"customFilename\"\n  const publicIdParts = cloudinaryResponseJson.public_id.split('/');\n  const cloudinaryFilenamePart = publicIdParts[publicIdParts.length - 1]; // e.g., \"session_id_promptX\"\n\n  const foundItem = allOriginalDetailsItems.find(\n    origItem => origItem.json.customFilename === cloudinaryFilenamePart\n  );\n  if (foundItem) {\n    matchingOriginalDetails = foundItem.json;\n  }\n\n  // Strategy 2: Fallback to index-based matching if filename match failed (less ideal but a backup)\n  // This assumes UploadTOCloudery processes and outputs items in the same order it received them.\n  if (!matchingOriginalDetails && cloudinaryResponses.length === allOriginalDetailsItems.length) {\n    console.warn(`Combine Cloudinary: Could not match Cloudinary response (public_id: ${cloudinaryResponseJson.public_id}) to original details by filename. Falling back to index ${loopIndex}.`);\n    if (allOriginalDetailsItems[loopIndex]) {\n        matchingOriginalDetails = allOriginalDetailsItems[loopIndex].json;\n    }\n  }\n\n  if (!matchingOriginalDetails) {\n    console.error(`Combine Cloudinary: CRITICAL - Could not find matching original details for Cloudinary response with public_id: ${cloudinaryResponseJson.public_id}. Skipping this item.`);\n    outputItems.push({ json: { ...cloudinaryResponseJson, error: \"Orphaned Cloudinary response - no matching original details.\" } });\n    return; // Skips to the next iteration of forEach\n  }\n\n  // Successfully matched, now combine them\n  const combinedJson = {\n    // All fields from Cloudinary's response\n    ...cloudinaryResponseJson, // This includes asset_id, public_id, secure_url, existing, etc.\n\n    // All fields from the matching originalDetails\n    // This will overwrite any same-named fields from cloudinaryResponseJson if they exist in matchingOriginalDetails,\n    // but mostly they should be distinct (e.g., theme_name, promptIndex are from originalDetails)\n    ...matchingOriginalDetails\n  };\n\n  outputItems.push({ json: combinedJson });\n});\n\nif (outputItems.length !== cloudinaryResponses.length) {\n    console.warn(`Combine Cloudinary: Processed ${outputItems.length} items but received ${cloudinaryResponses.length} Cloudinary responses. Some items may have been skipped due to matching errors.`);\n}\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3660,
+        360
+      ],
+      "id": "797bd6d6-0381-4e51-b087-2c4465e08464",
+      "name": "Combine Cloudinary with Details"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ajLOcSXtg7wrNq4f",
+          "mode": "list",
+          "cachedResultName": "W03Ford"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        4320,
+        360
+      ],
+      "id": "a84b973d-5f00-41a9-9ea4-5dbcd8f75d4c",
+      "name": "Execute Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Dynamic Prompt node - Updated to work with existing Feature Extraction Agent\nconst inputData = $input.first().json;\n\n// Extract theme assignments (exclude metadata fields)\nconst metadataFields = ['session_id', 'customer_name', 'email', 'petname', 'petKind', 'petGender', 'imageCount', 'imageFiles', 'requestType', 'editRequest', 'submittedAt', 'submissionId'];\n\nconst themes = {};\nlet themeCount = 0;\n\nObject.keys(inputData).forEach(key => {\n  if (!metadataFields.includes(key)) {\n    themeCount++;\n    themes[themeCount] = {\n      name: key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()),\n      key: key,\n      description: inputData[key]\n    };\n  }\n});\n\n// Build dynamic theme list text for the AI\nconst themeListText = Object.keys(themes)\n  .map(num => `Theme ${num} (${themes[num].name}):\\n${themes[num].description}`)\n  .join('\\n\\n');\n\n// Create the dynamic prompt text that tells the AI exactly how many prompts to generate\nconst dynamicPromptText = `The user uploaded ${inputData.imageCount || 'multiple'} pet images. You must generate EXACTLY ${themeCount} different prompts using the themes below. \n\n**CRITICAL:** Generate prompts numbered from 1 to ${themeCount} (prompt1, prompt2, ..., prompt${themeCount}).\n\nAvailable Themes (${themeCount} total):\n\n${themeListText}\n\n**OUTPUT REQUIREMENT:** Your JSON must contain exactly ${themeCount} prompts: ${Array.from({length: themeCount}, (_, i) => `prompt${i+1}`).join(', ')}.\n\n**IMPORTANT:** Each enhanced prompt must integrate the specific pet features you extract from the uploaded images with the theme scenario, using the pet's confirmed gender (${inputData.petGender}) for appropriate pronoun usage throughout.`;\n\n// Return the input data with the enhanced dynamic prompt text\nreturn [{\n  json: {\n    ...inputData,\n    dynamicPromptText: dynamicPromptText,\n    themeCount: themeCount,\n    themes: themes,\n    // Also pass individual fields for easy access in the system message\n    petName: inputData.petname,\n    petType: inputData.petKind,\n    petGender: inputData.petGender\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        700
+      ],
+      "id": "8d7ade05-67c1-4605-8aa1-b415655a5880",
+      "name": "Build Dynamic Prompt"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        560
+      ],
+      "id": "272479c3-433d-4a52-bd26-9bc3eb4a3730",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1080,
+        700
+      ],
+      "id": "1513844c-774e-4ced-a0b6-b0dcb1d5d57d",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.result) {\n  return [];\n}\n\nconst jobData = JSON.parse($json.result);\n\n// Extract images from customer_data array\nconst customerData = jobData.customer_data || [];\nconst imageField = customerData.find(item => item.key === '8objr');\nconst images = imageField ? imageField.value : [];\n\n// Transform to match your existing workflow structure\nreturn [{\n  json: {\n    body: {\n      submission_id: jobData.submission_id,\n      data: jobData.customer_data, // Pass the full customer_data array\n      images: images // Extract the actual images\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        700
+      ],
+      "id": "d16ffd0b-8bc1-4708-bd3e-a17c1e646837",
+      "name": "ParseQueueData"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -700,
+        700
+      ],
+      "id": "f7c3e993-0f35-44d6-a9d5-f5aef3b27275",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "content": "WORKFLOW 2\n\nThis workflow takes pet images and customer data, generates detailed AI-enhanced prompts for themed artwork, and sends the images for editing. It refines and uploads the results to Cloudinary, applies transformations, and prepares everything for final delivery. It’s designed to create high-quality, personalized artwork ",
+        "height": 220,
+        "width": 540,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -860,
+        400
+      ],
+      "id": "928b4448-8fb4-4f95-99c8-03df920eb1f5",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Uploading the generated images to cloudinary for transformations\n\nResponse is three different URL's serving different purposes\n",
+        "height": 140,
+        "width": 460,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3320,
+        540
+      ],
+      "id": "5c471827-9396-42b6-9d7e-f599f9560fa2",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "Distribute_images": {
+      "main": [
+        [
+          {
+            "node": "set_imageQUALITY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Image": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Merge Upload Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parser1": {
+      "main": [
+        [
+          {
+            "node": "Download_images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download_images": {
+      "main": [
+        [
+          {
+            "node": "Prepare Image Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_imageQUALITY": {
+      "main": [
+        [
+          {
+            "node": "Edit Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UploadTOCloudery": {
+      "main": [
+        [
+          {
+            "node": "Combine Cloudinary with Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Parameters": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer Data With Images",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Upload Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Customer With Transformations",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prepare Image Payload": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer Data With Images",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Set Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Prompts": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts With Images",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prepare Cloudinary Upload": {
+      "main": [
+        [
+          {
+            "node": "UploadTOCloudery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Prompts With Images": {
+      "main": [
+        [
+          {
+            "node": "Distribute_images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Customer Data With Images": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts With Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Upload Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Cloudinary Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Customer With Transformations": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Feature Extraction Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feature Extraction Agent1": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Prompts": {
+      "main": [
+        [
+          {
+            "node": "Build Dynamic Prompt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transformation": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer With Transformations",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine Cloudinary with Details": {
+      "main": [
+        [
+          {
+            "node": "Transformation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Dynamic Prompt": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Feature Extraction Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseQueueData": {
+      "main": [
+        [
+          {
+            "node": "Parser1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "ParseQueueData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "2fc616f4-b1e6-4c38-b57a-4419f5f0c5d9",
+  "activeVersionId": "2fc616f4-b1e6-4c38-b57a-4419f5f0c5d9",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-06-15T17:26:49.939Z",
+      "createdAt": "2025-06-15T17:26:49.939Z",
+      "role": "workflow:owner",
+      "workflowId": "1Fc8sgYUZKBvFUgp",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-06-15T17:26:46.177Z",
+      "createdAt": "2025-06-15T17:26:46.177Z",
+      "id": "CzAgg75vyIglOU7N",
+      "name": "master"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "2fc616f4-b1e6-4c38-b57a-4419f5f0c5d9",
+    "workflowId": "1Fc8sgYUZKBvFUgp",
+    "nodes": [
+      {
+        "parameters": {
+          "jsCode": "// Get all items from the merge node\nconst items = $input.all();\n\n// Find the item with the binary data (from Code5)\nlet binaryData = null;\nitems.forEach(item => {\n  if (item.binary && Object.keys(item.binary).length > 0) {\n    binaryData = item.binary;\n  }\n});\n\n// Find the prompt items (from the Code parser)\nconst promptItems = items.filter(item => item.json.promptIndex);\n\n// Create a new item for each prompt with the binary data\nreturn promptItems.map(item => {\n  return {\n    json: {\n      promptIndex: item.json.promptIndex,\n      prompt: item.json.prompt\n    },\n    binary: binaryData\n  };\n});"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2140,
+          680
+        ],
+        "id": "1f16524b-9abd-4dd2-aa9d-f51cd82562c2",
+        "name": "Distribute_images"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/images/edits",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "openAiApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "multipart-form-data",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "model",
+                "value": "gpt-image-1"
+              },
+              {
+                "name": "prompt",
+                "value": "={{ $json.prompt }}"
+              },
+              {
+                "parameterType": "formBinaryData",
+                "name": "image[]",
+                "inputDataFieldName": "=image0"
+              },
+              {
+                "parameterType": "formBinaryData",
+                "name": "image[]",
+                "inputDataFieldName": "image1"
+              },
+              {
+                "name": "=n",
+                "value": "={{ $json.n }}"
+              },
+              {
+                "name": "quality",
+                "value": "={{ $json.quality }}"
+              },
+              {
+                "name": "size",
+                "value": "={{ $json.size }}"
+              },
+              {
+                "parameterType": "formBinaryData",
+                "name": "image[]",
+                "inputDataFieldName": "image2"
+              },
+              {
+                "parameterType": "formBinaryData",
+                "name": "image[]",
+                "inputDataFieldName": "image3"
+              },
+              {
+                "name": "output_format",
+                "value": "={{ $json.output_format }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2560,
+          680
+        ],
+        "id": "4511a51f-abe6-45fc-9635-c479334f016c",
+        "name": "Edit Image",
+        "retryOnFail": false,
+        "waitBetweenTries": 5000,
+        "maxTries": 2,
+        "executeOnce": false,
+        "credentials": {
+          "openAiApi": {
+            "id": "bW0dWuK2BcJ9Uw2Z",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "toBinary",
+          "sourceProperty": "data[0].b64_json",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.convertToFile",
+        "typeVersion": 1.1,
+        "position": [
+          2800,
+          680
+        ],
+        "id": "b888df2e-f3b7-413c-89b5-1818ad428210",
+        "name": "Convert to File1"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = $json.body || {};\nlet editRequest = \"modify\"; // Default\nconst imageData = [];\n\n// Adjust based on actual Paperform keys\nif (body.data && Array.isArray(body.data)) {\n  body.data.forEach(field => {\n    // There’s no 'petDescription' in the sample input, so default stays\n    // Update key if that field is later added to the form\n    \n    if (field.key === '8objr' && Array.isArray(field.value)) {\n      // 8objr = Pet Photos\n      field.value.forEach((photo, index) => {\n        if (photo.url) {\n          imageData.push({\n            url: photo.url,\n            filename: photo.name || `image${index}.jpeg`,\n            mimeType: photo.type || 'image/jpeg',\n            index: index\n          });\n        }\n      });\n    }\n  });\n}\n\n// Return individual items for each image\nreturn imageData.map(img => ({\n  json: {\n    imageUrl: img.url,\n    imageName: img.filename,\n    imageType: img.mimeType,\n    imageIndex: img.index,\n    totalImages: imageData.length,\n    requestType: \"Modify my Product Image\",\n    editRequest: editRequest,\n    submittedAt: new Date().toISOString(),\n    session_id: body.submission_id || \"unknown\"\n  }\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -300,
+          700
+        ],
+        "id": "9bbd6ecc-f37d-4919-8d7a-4ee5dc551455",
+        "name": "Parser1"
+      },
+      {
+        "parameters": {
+          "url": "={{ $json.imageUrl }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -80,
+          700
+        ],
+        "id": "2becffc5-565f-41b2-9816-014f2339ce0e",
+        "name": "Download_images"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "\nconst item = $input.item; // Current item being processed\n\n// Create a copy of binary data to modify\nconst binaryData = {};\nif (item.binary) {\n  // Fix MIME types for all binary properties\n  for (const key in item.binary) {\n    binaryData[key] = {...item.binary[key]};\n    \n    // Ensure all jpg images use the correct mime type\n    if (binaryData[key].mimeType === 'image/jpg') {\n      binaryData[key].mimeType = 'image/jpeg';\n    }\n  }\n}\n\n// Create a new output item with both the prompt and binary data\nreturn {\n  json: {\n    promptIndex: item.json.promptIndex,\n    prompt: item.json.prompt,\n    n: 1,\n    quality: \"high\",//medium,high, auto\n    size: \"1024x1536\",\n    output_format: \"jpeg\",\n    email:$json.email\n  },\n  binary: binaryData // Use the corrected binary data\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2360,
+          680
+        ],
+        "id": "5c8741cc-96ba-465e-8fa1-ac0d589f4213",
+        "name": "set_imageQUALITY"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.cloudinary.com/v1_1/myfurryprints/image/upload",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBasicAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "multipart-form-data",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "public_id",
+                "value": "={{ $json.customFilename }}"
+              },
+              {
+                "parameterType": "formBinaryData",
+                "name": "file",
+                "inputDataFieldName": "data"
+              },
+              {
+                "name": "upload_preset",
+                "value": "n8n-generations"
+              },
+              {
+                "name": "folder",
+                "value": "={{ $json.session_id }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3440,
+          360
+        ],
+        "id": "4be85ee1-d999-4bbc-8478-311ea8956c6a",
+        "name": "UploadTOCloudery",
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "ZwQuXy3mFoa7bh3H",
+            "name": "cloudinaryFurryPrints"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "9a09c669-1cb9-44bc-9da8-00ef3ec54dee",
+                "name": "session_id",
+                "value": "={{ $json.body.submission_id }}",
+                "type": "string"
+              },
+              {
+                "id": "47327c4e-0fe4-4aa5-8a38-0d99e641bdc3",
+                "name": "customer_name",
+                "value": "={{ $json.body.data[4].value }} {{ $json.body.data[5].value }}",
+                "type": "string"
+              },
+              {
+                "id": "1117f85f-c597-444e-87cb-97cece4eb659",
+                "name": "email",
+                "value": "={{ $json.body.data[6].value }}",
+                "type": "string"
+              },
+              {
+                "id": "2f007b58-3fe0-4d48-bf90-43a61f0d4b2d",
+                "name": "petname",
+                "value": "={{ $json.body.data[2].value }}",
+                "type": "string"
+              },
+              {
+                "id": "56b08dbf-6695-4944-87e0-bb031d9e07b8",
+                "name": "petKind",
+                "value": "={{ $json.body.data[0].value }}",
+                "type": "string"
+              },
+              {
+                "id": "f53102c8-ae2e-4909-ba5b-8755bb93669a",
+                "name": "petGender",
+                "value": "={{ $json.body.data[1].value }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          0,
+          0
+        ],
+        "id": "25106d0b-56b9-4984-85e2-cf29ed0e2640",
+        "name": "Extract Parameters"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In the Code3 node, update to include submissionId\nconst items = $input.all();\nconst binaryOutput = {};\nconst imageFiles = [];\nconst submissionId = items[0]?.json?.submissionId || 'default';\n\n// Process all items with downloads\nitems.forEach((item, index) => {\n  if (item.binary && item.binary.data) {\n    // Copy binary data with the correct key name\n    binaryOutput[`image${index}`] = item.binary.data;\n    \n    // Build image metadata\n    imageFiles.push({\n      index: index,\n      filename: item.json.imageName || `image${index}.jpg`,\n      mimeType: item.json.imageType || 'image/jpeg'\n    });\n  }\n});\n\n// Get metadata from the first item\nconst firstItem = items[0] || {};\nconst metadata = {\n  requestType: firstItem.json?.requestType || \"Modify my Product Image\",\n  editRequest: firstItem.json?.editRequest || \"modify\",\n  imageCount: imageFiles.length,\n  imageFiles: imageFiles,\n  submittedAt: firstItem.json?.submittedAt || new Date().toISOString(),\n  submissionId: submissionId\n};\n\n// Return a single item with all image data\nreturn [{\n  json: metadata,\n  binary: binaryOutput\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          160,
+          700
+        ],
+        "id": "eb4b3b42-c61a-457b-a1c0-134b681ff54d",
+        "name": "Prepare Image Payload"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse AI Prompts node - FULLY DYNAMIC version\nconst raw = $input.first().json.output;\n\n// Step 1: Clean markdown formatting if present\nlet cleaned = raw.replace(/```json\\n?|```/gi, '').trim();\n\n// Step 2: Fix common JSON issues\ncleaned = cleaned.replace(/,(\\s*})/, '$1');\ncleaned = cleaned.replace(/,(\\s*])/, '$1');\n\n// Step 3: Parse JSON\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error('❌ Failed to parse AI prompts JSON: ' + e.message + '\\n\\nRaw content:\\n' + cleaned);\n}\n\n// Step 4: FULLY DYNAMIC theme mapping from Set Prompts node\nconst setPromptsData = $('Set Prompts').first().json;\n\n// Extract theme mapping dynamically from Set Prompts assignments\nconst themeMapping = {};\nconst metadataFields = ['session_id', 'customer_name', 'email', 'petname', 'petKind', 'petGender', 'imageCount', 'imageFiles', 'requestType', 'editRequest', 'submittedAt', 'submissionId'];\n\n// Build dynamic theme mapping from Set Prompts assignments\nlet themeIndex = 1;\nObject.keys(setPromptsData).forEach(key => {\n  // Skip metadata fields\n  if (metadataFields.includes(key)) {\n    return;\n  }\n  \n  // This is a theme assignment - map it dynamically\n  const themeName = key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());\n  \n  themeMapping[themeIndex] = {\n    name: themeName,\n    key: key,\n    description: setPromptsData[key]\n  };\n  \n  themeIndex++;\n});\n\n// Step 5: Dynamically handle any number of prompts\nconst results = [];\nconst promptKeys = Object.keys(parsed).filter(key => key.startsWith('prompt'));\n\n// Sort prompt keys to ensure correct order\npromptKeys.sort((a, b) => {\n  const numA = parseInt(a.replace('prompt', ''));\n  const numB = parseInt(b.replace('prompt', ''));\n  return numA - numB;\n});\n\n// Create output for each prompt with theme information\npromptKeys.forEach((key, index) => {\n  const promptNumber = parseInt(key.replace('prompt', ''));\n  const themeInfo = themeMapping[promptNumber] || { \n    name: `Theme ${promptNumber}`, \n    key: `THEME_${promptNumber}`,\n    description: `Unknown theme ${promptNumber}`\n  };\n  \n  results.push({\n    json: {\n      promptIndex: promptNumber,\n      prompt: parsed[key] || '',\n      theme_name: themeInfo.name,\n      themeKey: themeInfo.key,\n      themeDescription: themeInfo.description\n    }\n  });\n});\n\n// Validation: Check if we have the expected number of prompts\nconst expectedThemeCount = Object.keys(themeMapping).length;\nconsole.log(`✅ Successfully parsed ${results.length} prompts for ${expectedThemeCount} themes`);\n\n// Log theme assignments for debugging\nresults.forEach(result => {\n  console.log(`Prompt ${result.json.promptIndex}: ${result.json.theme_name} (${result.json.themeKey})`);\n});\n\n// Additional validation\nif (results.length !== expectedThemeCount) {\n  console.warn(`⚠️ Mismatch: Expected ${expectedThemeCount} prompts but parsed ${results.length}. AI may have generated different number of prompts.`);\n}\n\nreturn results;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1700,
+          700
+        ],
+        "id": "1241412f-7bfb-4877-be57-abf9a0cf099e",
+        "name": "Parse AI Prompts"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Prepare Cloudinary Upload\" (ID: 1abb99e0-ebc5-4267-947e-96ca35aae957)\nconst allMergedItems = $input.all();\nconst outputItems = [];\n\n// Find the customer data item (should be the one without binary from Extract Parameters)\nconst userDataItem = allMergedItems.find(item => item.json && item.json.email && !item.binary);\n// Filter out the binary image items (outputs of Convert to File1)\nconst binaryImageItems = allMergedItems.filter(item => item.binary && Object.keys(item.binary).length > 0);\n\n// Fetch all parsed prompt details (which include theme_name) from 'Parse AI Prompts1'\n// This node's output is a list of items, each with { json: { promptIndex, prompt, theme_name } }\nconst allParsedPrompts = $('Parse AI Prompts').all();\n\nif (!userDataItem) {\n  return [{ json: { error: \"User data not found in merged input for Prepare Cloudinary Upload.\" } }];\n}\nconst customerData = userDataItem.json;\n\nif (binaryImageItems.length === 0) {\n  return [{ json: { error: \"No binary image items found for Prepare Cloudinary Upload.\" } }];\n}\nif (allParsedPrompts.length === 0) {\n  return [{ json: { error: \"No parsed prompts found from 'Parse AI Prompts1' node.\" } }];\n}\n// Optional: Log a warning if counts don't match, but proceed by index.\nif (binaryImageItems.length !== allParsedPrompts.length) {\n  console.warn(`Warning: Mismatch in count. Binary images: ${binaryImageItems.length}, Parsed prompts: ${allParsedPrompts.length}. Processing based on index.`);\n}\n\nbinaryImageItems.forEach((binaryItem, index) => {\n  // Find the main binary data key (e.g., 'data' if ConvertToFile1 outputs that)\n  const binaryKey = Object.keys(binaryItem.binary).find(key =>\n    binaryItem.binary[key].mimeType?.startsWith('image/'));\n\n  if (binaryKey) {\n    // Assume binaryImageItems are in the same order as prompts (promptIndex 1, 2, 3...).\n    // The 'index' here is 0-based. promptIndex is 1-based.\n    const currentPromptIndex = index + 1;\n    const matchingParsedPromptItem = allParsedPrompts.find(p => p.json.promptIndex === currentPromptIndex);\n\n    let themeName = `Theme ${currentPromptIndex}`; // Default theme name\n    if (matchingParsedPromptItem && matchingParsedPromptItem.json.theme_name) {\n      themeName = matchingParsedPromptItem.json.theme_name;\n    } else {\n      console.warn(`Prepare Cloudinary Upload: No matching prompt data found for binary image at index ${index} (intended promptIndex ${currentPromptIndex}). Using default theme name: ${themeName}`);\n    }\n\n    const session_id = customerData.session_id;\n    const customFilename = `${session_id}_prompt${currentPromptIndex}`;\n\n    outputItems.push({\n      json: {\n        // Customer data\n        session_id: session_id,\n        email: customerData.email,\n        petname: customerData.petname,\n        petKind: customerData.petKind,\n        customer_name: customerData.customer_name,\n        // Prompt-specific data\n        promptIndex: currentPromptIndex,\n        theme_name: themeName, // Dynamic theme name\n        customFilename: customFilename\n      },\n      binary: {\n        // Ensure the key 'data' is what Cloudinary expects for the 'file' parameter\n        data: binaryItem.binary[binaryKey]\n      }\n    });\n  } else {\n    console.warn(`Prepare Cloudinary Upload: No valid binary key found for item at index ${index}.`);\n  }\n});\n\nif (outputItems.length === 0 && binaryImageItems.length > 0) {\n    return [{ json: { error: \"No binary data could be processed in Prepare Cloudinary Upload.\" } }];\n}\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3220,
+          360
+        ],
+        "id": "d86fbadd-5465-4da6-a638-6739c14d96ee",
+        "name": "Prepare Cloudinary Upload"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.1,
+        "position": [
+          1920,
+          680
+        ],
+        "id": "5e3d4e53-3774-4a64-baa3-9b8972a8847d",
+        "name": "Merge Prompts With Images"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.1,
+        "position": [
+          880,
+          320
+        ],
+        "id": "a07f1ab1-b913-4aae-b4d6-6dabfe278d28",
+        "name": "Merge Customer Data With Images"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.1,
+        "position": [
+          3000,
+          360
+        ],
+        "id": "a721c595-d15d-41fc-bbc6-699620a89eb4",
+        "name": "Merge Upload Data"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.1,
+        "position": [
+          4120,
+          300
+        ],
+        "id": "cce0a461-8c33-462c-8e56-e9aafeab8f62",
+        "name": "Merge Customer With Transformations"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-4o",
+            "mode": "list",
+            "cachedResultName": "gpt-4o"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          1340,
+          900
+        ],
+        "id": "bbb7be69-49d7-4691-b5f8-83f432e651f7",
+        "name": "OpenAI Chat Model1",
+        "credentials": {
+          "openAiApi": {
+            "id": "bW0dWuK2BcJ9Uw2Z",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.dynamicPromptText }}",
+          "options": {
+            "systemMessage": "=You are a **Professional Pet Feature Extraction Agent** specializing in photorealistic image generation with themed overlays for premium artwork creation.\n\n**CRITICAL IMAGE FILTERING REQUIREMENT**: \nYou must ONLY process and analyze images that clearly contain pets (dogs, cats, or other domestic animals). If you encounter any images that do not contain pets, you must ignore them completely and only work with the pet images provided. Do not describe, analyze, or reference any non-pet images in your output.\n\n**PET INFORMATION CONTEXT:**\nBefore analyzing the images, note the following confirmed information about this pet:\n- Pet Type: {{ $json.petKind }}  \n- Pet Gender: {{ $json.petGender }}\n\nUse this metadata to:\n1. Ensure correct pronoun usage throughout all prompts (he/him for males, she/her for females, they/them if unspecified)\n2. Apply breed-specific knowledge if the pet type provides breed information\n3. Cross-reference your visual analysis with the confirmed pet type\n\n**ARTWORK CONTEXT**: These images are being created as high-quality artwork pieces that users will print and display in their homes. Therefore, every image must be composed with beautiful, frame-worthy aesthetics that would look stunning when printed and hung on a wall.\n\n**YOUR CORE TASK**: \n1. Analyze ONLY the uploaded pet images to extract detailed visual features\n2. Take each provided theme prompt and ENHANCE it by integrating the specific pet details\n3. Create comprehensive prompts that are: **Original Theme + Detailed Pet Features**\n\n### Pet Feature Extraction Process:\nCarefully analyze ALL provided pet images and extract these specific details:\n\n**PHYSICAL CHARACTERISTICS:**\n- **Breed**: Exact breed or breed mix (e.g., \"Golden Retriever mix,\" \"tabby cat,\" \"German Shepherd\")\n- **Size & Build**: Body proportions, weight appearance, overall build\n- **Fur/Coat**: \n  - Texture (fluffy, short-haired, curly, wiry, silky)\n  - Length (long, medium, short)\n  - Density (thick, thin, double-coat)\n- **Color Patterns**: \n  - Primary colors with specific shades (golden brown, cream, black, white, gray, etc.)\n  - Secondary colors and markings\n  - Distinctive patterns (spots, stripes, patches, socks, masks)\n  - Color distribution (where each color appears)\n\n**FACIAL FEATURES:**\n- **Eyes**: Color, shape, size, expression (bright blue, amber, dark brown, almond-shaped, etc.)\n- **Ears**: Shape, position, size (floppy, pointed, cropped, natural)\n- **Nose**: Color and shape (black, pink, spotted)\n- **Muzzle**: Length and shape (long, short, square, pointed)\n- **Facial markings**: Masks, blazes, eye patches, etc.\n\n**DISTINCTIVE FEATURES:**\n- **Unique markings**: Scars, birthmarks, unique color patterns\n- **Tail**: Length, shape, curl, fluffiness\n- **Paws**: Color, markings, size\n- **Any other distinguishing characteristics** that make this pet instantly recognizable\n\n### Prompt Enhancement Strategy:\nFor each theme, follow this formula:\n**ENHANCED PROMPT = Original Theme Description + Detailed Pet Integration + Quality Specifications**\n\n**Example Structure:**\n```\n[Original theme scenario], featuring a [detailed breed description] with [specific fur description], [distinctive facial features], and [unique markings]. The {{ $json.petGender }} {{ $json.petKind }} has [eye color] eyes, [ear description], and [any other distinctive features]. The pet [continues theme scenario with pet integrated using correct pronouns]. [Quality specifications for professional photography].\n```\n\n### Image Quality Requirements:\nEvery enhanced prompt MUST include:\n- **Photorealistic rendering**: \"photorealistic, high-resolution, professional photography style\"\n- **Frame-worthy composition**: \"beautiful composition with balanced framing perfect for wall art display\"\n- **Professional lighting**: Specify appropriate lighting (natural soft lighting, golden hour, studio lighting)\n- **Camera specifications**: \"sharp focus,\" \"professional portrait photography,\" \"shallow depth of field\" when appropriate\n- **Detail quality**: \"ultra-detailed,\" \"lifelike,\" \"gallery-quality,\" \"individual fur strands visible\"\n- **Print specifications**: \"high resolution suitable for large format printing\"\n\n**AVOID**: Any cartoon, illustration, animated, or stylized terms\n\n### Dynamic Theme Configuration:\nThe workflow provides themes dynamically through the Set Prompts node. The number of themes can vary and will be automatically detected. You must generate prompts for ALL provided themes, regardless of how many there are.\n\n### Output Format:\nGenerate a JSON object with prompts numbered sequentially for EACH PROVIDED THEME. The number of prompts will match the number of themes provided in the input:\n\n**For Dynamic Theme Count:**\n- If 3 themes provided → Generate prompt1, prompt2, prompt3\n- If 4 themes provided → Generate prompt1, prompt2, prompt3, prompt4\n- If 5 themes provided → Generate prompt1, prompt2, prompt3, prompt4, prompt5\n- And so on...\n\n**JSON Structure Example (adapt based on actual number of themes):**\n```json\n{\n  \"prompt1\": \"[Original Theme 1] featuring a [detailed pet description with all extracted features]. The {{ $json.petGender }} {{ $json.petKind }} has [specific characteristics]. The pet [continues theme scenario with pet integrated using he/his for males, she/her for females]. Beautiful composition with balanced framing perfect for wall art display. Ultra-detailed, lifelike, gallery-quality, photorealistic professional photography style with [appropriate lighting] and sharp focus.\",\n  \"prompt2\": \"[Original Theme 2] featuring a [detailed pet description with all extracted features]. The {{ $json.petGender }} {{ $json.petKind }} has [specific characteristics]. The pet [continues theme scenario with pet integrated using correct pronouns]. Beautiful composition with balanced framing perfect for wall art display. Ultra-detailed, lifelike, gallery-quality, photorealistic professional photography style with [appropriate lighting] and sharp focus.\",\n  \"promptN\": \"[Original Theme N] featuring a [detailed pet description with all extracted features]. The {{ $json.petGender }} {{ $json.petKind }} has [specific characteristics]. The pet [continues theme scenario with pet integrated using correct pronouns]. Beautiful composition with balanced framing perfect for wall art display. Ultra-detailed, lifelike, gallery-quality, photorealistic professional photography style with [appropriate lighting] and sharp focus.\"\n}\n```\n\n**DYNAMIC REQUIREMENT**: Always generate exactly the same number of prompts as themes provided in the input. Count the themes carefully and ensure your JSON output matches.\n\n**CRITICAL REQUIREMENTS**: \n- Each prompt must be detailed enough that someone who has never seen this pet could recognize them from the generated image\n- Include specific colors, markings, breed characteristics, and distinctive features\n- Seamlessly integrate pet details into the themed scenarios\n- Maintain the humor and creative elements of each original theme\n- Each enhanced prompt should be comprehensive (150-250 words) to ensure all pet details and theme elements are captured\n- Use the provided pet metadata (petKind, petGender) to ensure accurate and personalized prompts\n- ONLY analyze and reference pet images - ignore any non-pet content\n- For {{ $json.petGender }} = \"Male\", use he/him/his pronouns\n- For {{ $json.petGender }} = \"Female\", use she/her/hers pronouns\n\n**PROMPT LENGTH**: Each enhanced prompt should be comprehensive enough to ensure all pet details and theme elements are captured for high-quality image generation while maintaining the creative and humorous aspects of the original themes.\n\nFocus on creating prompts that will generate images where the pet is completely recognizable with distinctive features intact while being seamlessly integrated into the thematic settings, suitable for premium wall art display."
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.8,
+        "position": [
+          1340,
+          700
+        ],
+        "id": "d9785fb0-05b8-46ad-a807-cc2db49cdc3e",
+        "name": "Feature Extraction Agent1"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "b9c416ad-8567-4398-bfc0-0a698641b5fb",
+                "name": "Spa Day Deluxe",
+                "value": "Create image Create a humorous, photorealistic image of my pet enjoying an extravagant spa day. He should be sitting or lying comfortably on a plush spa table, fully wrapped in fluffy white towels, including a towel elegantly wrapped around his head like a turban. Place slices of cucumber gently over his eyes. Surround him with steaming spa decor: large lit candles, soft warm lighting, gentle mist, and leafy greenery in the background. Ensure the scene feels like a luxury spa magazine photo—serene yet comical. Focus on a centered portrait composition, capturing vivid detail in fur texture, towel folds, steam effects, and the dog’s relaxed, pampered expression.",
+                "type": "string"
+              },
+              {
+                "id": "6aeb6e6a-e446-4443-897e-d1bb22fcb374",
+                "name": "Midnight Snack",
+                "value": "Create image Generate a photorealistic image capturing my pet tiptoeing stealthily towards the refrigerator at midnight, the fridge door already open with its light dramatically illuminating his guilty face. He is wearing fuzzy slippers and pajamas, paw halfway inside a cake box. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              },
+              {
+                "id": "efbe2046-a8cc-4564-8d0c-3e9678e01cf9",
+                "name": "Victorian Portrait",
+                "value": "Create image Portray my pet as an elegant royal figure from the Victorian era, sitting regally on a velvet throne, wearing a luxurious embroidered robe and a golden crown, depicted in classic oil painting style with warm, rich colors and intricate details. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              },
+              {
+                "id": "30fc7cd9-e639-4ad6-94c7-f8fa0ab4cf44",
+                "name": "Harry Dogger",
+                "value": "Create image Turn my pet into a Hogwarts student from the Harry Potter universe, proudly wearing Gryffindor house robes and scarf, surrounded by magical elements such as floating candles, potion books, a wand, and enchanted objects. Set the scene within Hogwarts’ warm, candlelit Great Hall, capturing the whimsical and magical atmosphere typical of the Harry Potter movies and books. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              },
+              {
+                "id": "23c1ec30-6b36-493c-a80f-f73f72ac42ab",
+                "name": "Corporate Pet",
+                "value": "Create image Create a funny and photorealistic image of my pet seated professionally behind an executive desk, wearing stylish glasses, a business suit, and paw resting thoughtfully on a keyboard. Surround his with office details—laptop, coffee mug labeled \"World's Best Boss,\" stacks of paper, and 3 yellow sticky notes (one is written \"Cancel the vet\", another is written \"Order more treats\" and the third one is written \"Nap after lunch\"). Capture his expression as focused yet adorably overwhelmed. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              },
+              {
+                "id": "63d9ad28-5bd4-4f82-b3e1-01b53882e7ea",
+                "name": "Home Yoga",
+                "value": "Create image Depict my pet humorously performing a yoga pose (downward dog pose) on a yoga mat, wearing trendy yoga pants and a sweatband, in a calm, serene yoga studio with candles, incense, and lush plants. His expression should look peaceful yet slightly humorous, perfectly balancing realism and comedy. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              },
+              {
+                "id": "0e8016c9-0d38-42f8-8f55-faa87695ccf0",
+                "name": "Game of Thrones",
+                "value": "Create image A photorealistic digital painting of my pet depicted as a noble warrior in the Game of Thrones universe. The pet is sitting regally on the Iron Throne, wearing intricately engraved dark steel medieval armor with leatHis straps and embossed chest plating. Draped over its shoulders is a thick black fur-lined cloak that blends into the dramatic lighting of the dim throne room. The the eyes of my pet stare forward with commanding authority, its expression calm and resolute. Snowflakes drift through the cold air inside the stone chamber, faintly illuminated by the soft orange glow of wall-mounted torches. The Iron Throne looms behind my pet, forged from twisted swords, with shadowed edges and icy texture. The overall scene is dark, cinematic, and richly textured, evoking the atmosphere of Winterfell or the Night's Watch from the TV series, with high detail, moody shadows, and a fantasy epic tone. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              },
+              {
+                "id": "c787f5e1-12d3-4916-8d91-236112604492",
+                "name": "Morning Coffee",
+                "value": "Create image Generate a humorous photorealistic image of my pet casually sitting at a breakfast table, wrapped in a cozy bathrobe, paws around a steaming coffee cup, newspaper or tablet in front of him. Capture a relaxed, slightly sleepy morning vibe, perfectly mimicking a human's routine with realistic detail. Do not use elements from the previously created images. Portrait mode.",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          360,
+          700
+        ],
+        "id": "44a97861-1b15-49eb-90f5-4c673acf9ac3",
+        "name": "Set Prompts"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "// In \"Transformation\" (ID: 3206a9f0-c977-4669-aae0-33983e3e4c23)\n// Input item is the output of \"Combine Cloudinary with Details\"\nconst combinedItemJson = $input.item.json;\n\nconst publicId = combinedItemJson.public_id; // From Cloudinary part of combinedItemJson\nconst cloudName = \"myfurryprints\";\nconst maskId = \"Mask3larger_jpm63l\"; // Ensure this mask ID is correct\n\nconst imageTransformations = {\n  clothing: `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/l_${maskId},w_4000,fl_cutter/${publicId}`,\n  other: `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/${publicId}`\n};\n\n// Pass through all fields from combinedItemJson and add/overwrite transformation URLs\nreturn {\n  json: {\n    ...combinedItemJson, // This includes Cloudinary data AND original details like theme_name, promptIndex, email etc.\n    original_url: combinedItemJson.secure_url, // Using secure_url from Cloudinary for consistency\n    collection_image_url: combinedItemJson.secure_url,\n    transformations: imageTransformations,\n    clothing_url: imageTransformations.clothing,\n    other_url: imageTransformations.other\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3900,
+          360
+        ],
+        "id": "57d6c219-def6-40e3-bc01-a295260115ae",
+        "name": "Transformation"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Node Name: Combine Cloudinary with Details\n// Mode: Run Once For All Items\n\n// All Cloudinary responses from the UploadTOCloudery node\nconst cloudinaryResponses = $input.all();\n\n// All original items that were the input to UploadTOCloudery\n// These are the outputs of the 'Prepare Cloudinary Upload' node from its last full run.\nconst allOriginalDetailsItems = $('Prepare Cloudinary Upload').all();\n\nif (cloudinaryResponses.length === 0) {\n  console.warn(\"Combine Cloudinary: No Cloudinary responses received.\");\n  return [];\n}\nif (allOriginalDetailsItems.length === 0) {\n  console.error(\"Combine Cloudinary: No original details found from 'Prepare Cloudinary Upload'. Cannot merge.\");\n  // Return items indicating error or an empty array\n  return cloudinaryResponses.map(cr => ({ json: { ...cr.json, error: \"Missing original details for merging.\" } }));\n}\n\nconst outputItems = [];\n\ncloudinaryResponses.forEach((cloudinaryItem, loopIndex) => {\n  const cloudinaryResponseJson = cloudinaryItem.json; // This is the actual Cloudinary API response data\n\n  let matchingOriginalDetails = null;\n\n  // Strategy 1: Match using public_id (from Cloudinary) and customFilename (from original details)\n  // Cloudinary public_id is often \"folder/customFilename\" or just \"customFilename\"\n  const publicIdParts = cloudinaryResponseJson.public_id.split('/');\n  const cloudinaryFilenamePart = publicIdParts[publicIdParts.length - 1]; // e.g., \"session_id_promptX\"\n\n  const foundItem = allOriginalDetailsItems.find(\n    origItem => origItem.json.customFilename === cloudinaryFilenamePart\n  );\n  if (foundItem) {\n    matchingOriginalDetails = foundItem.json;\n  }\n\n  // Strategy 2: Fallback to index-based matching if filename match failed (less ideal but a backup)\n  // This assumes UploadTOCloudery processes and outputs items in the same order it received them.\n  if (!matchingOriginalDetails && cloudinaryResponses.length === allOriginalDetailsItems.length) {\n    console.warn(`Combine Cloudinary: Could not match Cloudinary response (public_id: ${cloudinaryResponseJson.public_id}) to original details by filename. Falling back to index ${loopIndex}.`);\n    if (allOriginalDetailsItems[loopIndex]) {\n        matchingOriginalDetails = allOriginalDetailsItems[loopIndex].json;\n    }\n  }\n\n  if (!matchingOriginalDetails) {\n    console.error(`Combine Cloudinary: CRITICAL - Could not find matching original details for Cloudinary response with public_id: ${cloudinaryResponseJson.public_id}. Skipping this item.`);\n    outputItems.push({ json: { ...cloudinaryResponseJson, error: \"Orphaned Cloudinary response - no matching original details.\" } });\n    return; // Skips to the next iteration of forEach\n  }\n\n  // Successfully matched, now combine them\n  const combinedJson = {\n    // All fields from Cloudinary's response\n    ...cloudinaryResponseJson, // This includes asset_id, public_id, secure_url, existing, etc.\n\n    // All fields from the matching originalDetails\n    // This will overwrite any same-named fields from cloudinaryResponseJson if they exist in matchingOriginalDetails,\n    // but mostly they should be distinct (e.g., theme_name, promptIndex are from originalDetails)\n    ...matchingOriginalDetails\n  };\n\n  outputItems.push({ json: combinedJson });\n});\n\nif (outputItems.length !== cloudinaryResponses.length) {\n    console.warn(`Combine Cloudinary: Processed ${outputItems.length} items but received ${cloudinaryResponses.length} Cloudinary responses. Some items may have been skipped due to matching errors.`);\n}\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3660,
+          360
+        ],
+        "id": "797bd6d6-0381-4e51-b087-2c4465e08464",
+        "name": "Combine Cloudinary with Details"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "ajLOcSXtg7wrNq4f",
+            "mode": "list",
+            "cachedResultName": "W03Ford"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          4320,
+          360
+        ],
+        "id": "a84b973d-5f00-41a9-9ea4-5dbcd8f75d4c",
+        "name": "Execute Workflow"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Build Dynamic Prompt node - Updated to work with existing Feature Extraction Agent\nconst inputData = $input.first().json;\n\n// Extract theme assignments (exclude metadata fields)\nconst metadataFields = ['session_id', 'customer_name', 'email', 'petname', 'petKind', 'petGender', 'imageCount', 'imageFiles', 'requestType', 'editRequest', 'submittedAt', 'submissionId'];\n\nconst themes = {};\nlet themeCount = 0;\n\nObject.keys(inputData).forEach(key => {\n  if (!metadataFields.includes(key)) {\n    themeCount++;\n    themes[themeCount] = {\n      name: key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()),\n      key: key,\n      description: inputData[key]\n    };\n  }\n});\n\n// Build dynamic theme list text for the AI\nconst themeListText = Object.keys(themes)\n  .map(num => `Theme ${num} (${themes[num].name}):\\n${themes[num].description}`)\n  .join('\\n\\n');\n\n// Create the dynamic prompt text that tells the AI exactly how many prompts to generate\nconst dynamicPromptText = `The user uploaded ${inputData.imageCount || 'multiple'} pet images. You must generate EXACTLY ${themeCount} different prompts using the themes below. \n\n**CRITICAL:** Generate prompts numbered from 1 to ${themeCount} (prompt1, prompt2, ..., prompt${themeCount}).\n\nAvailable Themes (${themeCount} total):\n\n${themeListText}\n\n**OUTPUT REQUIREMENT:** Your JSON must contain exactly ${themeCount} prompts: ${Array.from({length: themeCount}, (_, i) => `prompt${i+1}`).join(', ')}.\n\n**IMPORTANT:** Each enhanced prompt must integrate the specific pet features you extract from the uploaded images with the theme scenario, using the pet's confirmed gender (${inputData.petGender}) for appropriate pronoun usage throughout.`;\n\n// Return the input data with the enhanced dynamic prompt text\nreturn [{\n  json: {\n    ...inputData,\n    dynamicPromptText: dynamicPromptText,\n    themeCount: themeCount,\n    themes: themes,\n    // Also pass individual fields for easy access in the system message\n    petName: inputData.petname,\n    petType: inputData.petKind,\n    petGender: inputData.petGender\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          560,
+          700
+        ],
+        "id": "8d7ade05-67c1-4605-8aa1-b415655a5880",
+        "name": "Build Dynamic Prompt"
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineAll",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          880,
+          560
+        ],
+        "id": "272479c3-433d-4a52-bd26-9bc3eb4a3730",
+        "name": "Merge"
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineAll",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          1080,
+          700
+        ],
+        "id": "1513844c-774e-4ced-a0b6-b0dcb1d5d57d",
+        "name": "Merge1"
+      },
+      {
+        "parameters": {
+          "jsCode": "if (!$json.result) {\n  return [];\n}\n\nconst jobData = JSON.parse($json.result);\n\n// Extract images from customer_data array\nconst customerData = jobData.customer_data || [];\nconst imageField = customerData.find(item => item.key === '8objr');\nconst images = imageField ? imageField.value : [];\n\n// Transform to match your existing workflow structure\nreturn [{\n  json: {\n    body: {\n      submission_id: jobData.submission_id,\n      data: jobData.customer_data, // Pass the full customer_data array\n      images: images // Extract the actual images\n    }\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -500,
+          700
+        ],
+        "id": "d16ffd0b-8bc1-4708-bd3e-a17c1e646837",
+        "name": "ParseQueueData"
+      },
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -700,
+          700
+        ],
+        "id": "f7c3e993-0f35-44d6-a9d5-f5aef3b27275",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "content": "WORKFLOW 2\n\nThis workflow takes pet images and customer data, generates detailed AI-enhanced prompts for themed artwork, and sends the images for editing. It refines and uploads the results to Cloudinary, applies transformations, and prepares everything for final delivery. It’s designed to create high-quality, personalized artwork ",
+          "height": 220,
+          "width": 540,
+          "color": 5
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -860,
+          400
+        ],
+        "id": "928b4448-8fb4-4f95-99c8-03df920eb1f5",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "content": "Uploading the generated images to cloudinary for transformations\n\nResponse is three different URL's serving different purposes\n",
+          "height": 140,
+          "width": 460,
+          "color": 6
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          3320,
+          540
+        ],
+        "id": "5c471827-9396-42b6-9d7e-f599f9560fa2",
+        "name": "Sticky Note1"
+      }
+    ],
+    "connections": {
+      "Distribute_images": {
+        "main": [
+          [
+            {
+              "node": "set_imageQUALITY",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Image": {
+        "main": [
+          [
+            {
+              "node": "Convert to File1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Convert to File1": {
+        "main": [
+          [
+            {
+              "node": "Merge Upload Data",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Parser1": {
+        "main": [
+          [
+            {
+              "node": "Download_images",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download_images": {
+        "main": [
+          [
+            {
+              "node": "Prepare Image Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set_imageQUALITY": {
+        "main": [
+          [
+            {
+              "node": "Edit Image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "UploadTOCloudery": {
+        "main": [
+          [
+            {
+              "node": "Combine Cloudinary with Details",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Parameters": {
+        "main": [
+          [
+            {
+              "node": "Merge Customer Data With Images",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge Upload Data",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge Customer With Transformations",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge1",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Prepare Image Payload": {
+        "main": [
+          [
+            {
+              "node": "Merge Customer Data With Images",
+              "type": "main",
+              "index": 1
+            },
+            {
+              "node": "Set Prompts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse AI Prompts": {
+        "main": [
+          [
+            {
+              "node": "Merge Prompts With Images",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Prepare Cloudinary Upload": {
+        "main": [
+          [
+            {
+              "node": "UploadTOCloudery",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Prompts With Images": {
+        "main": [
+          [
+            {
+              "node": "Distribute_images",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Customer Data With Images": {
+        "main": [
+          [
+            {
+              "node": "Merge Prompts With Images",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Upload Data": {
+        "main": [
+          [
+            {
+              "node": "Prepare Cloudinary Upload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Customer With Transformations": {
+        "main": [
+          [
+            {
+              "node": "Execute Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Feature Extraction Agent1",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Feature Extraction Agent1": {
+        "main": [
+          [
+            {
+              "node": "Parse AI Prompts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Prompts": {
+        "main": [
+          [
+            {
+              "node": "Build Dynamic Prompt",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transformation": {
+        "main": [
+          [
+            {
+              "node": "Merge Customer With Transformations",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Combine Cloudinary with Details": {
+        "main": [
+          [
+            {
+              "node": "Transformation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Dynamic Prompt": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Merge1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge1": {
+        "main": [
+          [
+            {
+              "node": "Feature Extraction Agent1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ParseQueueData": {
+        "main": [
+          [
+            {
+              "node": "Parser1",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Extract Parameters",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "ParseQueueData",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-06-17T18:53:37.284Z",
+        "id": 26,
+        "workflowId": "1Fc8sgYUZKBvFUgp",
+        "versionId": "2fc616f4-b1e6-4c38-b57a-4419f5f0c5d9",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
