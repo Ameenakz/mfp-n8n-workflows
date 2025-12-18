@@ -1,0 +1,1490 @@
+{
+  "updatedAt": "2025-09-01T05:22:28.777Z",
+  "createdAt": "2025-08-21T09:29:04.744Z",
+  "id": "1ewTdbS69ZAvlGQT",
+  "name": "MockupManagement-General",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3008,
+        368
+      ],
+      "id": "df3cec10-a3f2-4620-8d7f-b61cc84e290f",
+      "name": "Extract Collection Data"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2224,
+        368
+      ],
+      "id": "8c9a580f-5420-4e13-a739-e2ff5cada832",
+      "name": "Loop Product Templates"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst outputItems = [];\n\n// Define your Printify products\nconst printifyProducts = {\n  \"clothing\": [\n    { \n      blueprint_id: 12, \n      print_provider_id: 331, \n      name: \"Premium Cotton Unisex T-shirt\",\n      variant_id:[18539,18540,18541,18542,18543,18544],\n      product_type: \"clothing\"\n    }\n    //black variants 18099,18100,18101,18102,18103,18104,\n  ],\n  \"other\": [\n    { \n      blueprint_id: 635, \n      print_provider_id: 94, \n      name: \"Color Accent Mug\",\n      variant_id:[72180,72183,72184,105888],\n      product_type: \"other\"\n    },\n    // { \n    //   blueprint_id: 421, \n    //   print_provider_id: 23, \n    //   name: \"Tough Phone Case - iPhone, Samsung, Google\",\n    //   variant_id:[75383,75385,75387,75389,77841,77843,77845,79425,80152,80154,80156,96397,96399,96401,96403,96738,96740,96742,98738,102547,102549,102551,102553,105148,105150,105152,105154,105156,112191,112193,112195,112197,116386,116388,116390,117862,117864,117866],\n    //   product_type: \"other\"\n    // },\n    { \n      blueprint_id: 421, \n      print_provider_id: 23, \n      name: \"Tough Phone Case - iPhone\",\n      variant_id:[75383,75385,75387,75389,96397,96399,96401,96403,102547,102549,102551,102553,112191,112193,112195,112197],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 421, \n      print_provider_id: 23, \n      name: \"Tough Phone Case - Samsung\",\n      variant_id:[77841,77843,77845,79425,80152,80154,80156,96738,96740,96742,105148,105150,105152,117862,117864,117866],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 764, \n      print_provider_id: 72, \n      name: \"Premium Framed Poster\",\n      variant_id:[75328,75330,75332],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 937, \n      print_provider_id: 105, \n      name: \"Canvas Portrait\",\n      variant_id: [95213,95214], \n      product_type: \"other\"\n    }    \n  ]\n};\n\n// Get source data from Split_Product_Types node\nconst allSourceData = $('Split_Product_Types').all();\n\n// Cloudinary config\nconst cloudName = 'myfurryprints';\nconst maskId = 'Mask3larger_jpm63l';\nconst CLOTHING_TX = `e_upscale/c_scale,w_4000/l_${maskId},w_4000,fl_cutter`;\nconst OTHER_TX = `e_upscale/c_scale,w_4000`;\n\n// Helper to build the Cloudinary URL based on product type\nfunction buildImageUrl(productType, publicId) {\n  const base = `https://res.cloudinary.com/${cloudName}/image/upload`;\n  return productType === 'clothing'\n    ? `${base}/${CLOTHING_TX}/${publicId}`\n    : `${base}/${OTHER_TX}/${publicId}`;\n}\n\n// Main loop\nitems.forEach(item => {\n  const collection = item.json.custom_collection;\n\n  const sourceDataItem = allSourceData.find(\n    sourceItem => sourceItem.json.collection_name === collection.title\n  );\n\n  if (!collection || !sourceDataItem) return; // skip if either is missing\n\n  const sourceData = sourceDataItem.json;\n  const publicId = sourceData.public_id;\n\n  // Combine clothing and other products into one loop\n  const allProducts = [...printifyProducts.clothing, ...printifyProducts.other];\n\n  allProducts.forEach(product => {\n    const imageUrl = buildImageUrl(product.product_type, publicId);\n\n    outputItems.push({\n      json: {\n        session_id:            sourceData.session_id,\n        email:                 sourceData.email,\n        petname:               sourceData.petname,\n        customer_name:         sourceData.customer_name,\n        promptIndex:           sourceData.promptIndex,\n        theme_name:            sourceData.theme_name,\n        shopify_collection_id: collection.id,\n\n        product_type:          product.product_type,\n        image_url:             imageUrl,\n        blueprint_id:          product.blueprint_id,\n        print_provider_id:     product.print_provider_id,\n        product_title:         `${sourceData.theme_name} - ${product.name}`,\n        template_name:         product.name,\n        required_variant_ids:  product.variant_id \n      }\n    });\n\n    console.log(`✅ Created ${product.product_type} product with URL: ${imageUrl}`);\n  });\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3232,
+        368
+      ],
+      "id": "7534c776-1136-4bc4-9221-7535f40a329d",
+      "name": "Map_Printify_Products"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printify.com/v1/uploads/images.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_name\": \"{{ $json.petname }}_{{ $json.theme_name }}.jpg\",\n  \"url\": \"{{ $json.image_url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1888,
+        192
+      ],
+      "id": "6e53704e-4b04-43d0-8d49-7592ee9563a3",
+      "name": "Upload_Image_To_Printify",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.blueprint_id }}/print_providers/{{ $json.print_provider_id }}/variants.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1888,
+        432
+      ],
+      "id": "122226d0-cb38-426d-b455-cd60afcabf63",
+      "name": "Get_Print_Provider_Variants",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ZwQuXy3mFoa7bh3H",
+          "name": "cloudinaryFurryPrints"
+        },
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Prepare_Printify_Product_Payload\" (ID: d98090aa-3355-4fc8-bc41-63373c3e29c7)\n\n// --- NEW: Read all variant data from the Google Sheet node ---\nconst sheetData = $('Get_Variant_Pricing_From_Sheet').all();\n\n// --- NEW: Create Maps for fast lookups. One for prices, one for descriptions ---\nconst variantPriceMap = new Map();\nconst blueprintDescriptionMap = new Map();\n\nfor (const item of sheetData) {\n  const { variant_id, price, blueprint_id, product_description } = item.json;\n  \n  // Map each variant_id to its price\n  if (variant_id && price !== undefined) {\n    variantPriceMap.set(String(variant_id), parseInt(price, 10));\n  }\n  \n  // Map each blueprint_id to a description. This avoids storing redundant descriptions.\n  // We only store the first valid description we find for a blueprint.\n  if (blueprint_id && product_description && !blueprintDescriptionMap.has(String(blueprint_id))) {\n    blueprintDescriptionMap.set(String(blueprint_id), product_description);\n  }\n}\nconsole.log(`Loaded ${variantPriceMap.size} prices and ${blueprintDescriptionMap.size} descriptions from the sheet.`);\n\n\n// 1. Get the original data from the start of the loop\nconst productInfo = $('Loop Product Templates').item.json;\n\n// 2. Get the result of the image upload\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\n\n// 3. Get the result of the variants API call\nconst providerVariantsResponse = $input.item.json;\n\n// --- Error Checking ---\nif (!productInfo || !productInfo.product_title) {\n  throw new Error(\"Could not find original product data from the loop.\");\n}\nif (!uploadedImage || !uploadedImage.id) {\n  throw new Error(\"Could not find a valid image ID from the upload step.\");\n}\nif (!providerVariantsResponse || !providerVariantsResponse.variants) {\n  throw new Error(\"Could not find a valid variants array from the API call.\");\n}\n\nconst placeholderPosition = providerVariantsResponse.variants?.[0]?.print_areas?.[0]?.placeholders?.[0]?.position || \"front\";\nconst requiredVariantIds = productInfo.required_variant_ids;\n\n// --- UPDATED LOGIC: Set price for each variant based on the Google Sheet ---\nconst variants = providerVariantsResponse.variants\n  .filter(variant => requiredVariantIds.includes(variant.id))\n  .map(variant => {\n    // Look up the price from our map\n    const priceFromSheet = variantPriceMap.get(String(variant.id));\n\n    if (priceFromSheet === undefined) {\n      console.warn(`⚠️ Price for variant ID ${variant.id} not found in Google Sheet. Using fallback price.`);\n    }\n\n    return {\n      id: variant.id,\n      price: priceFromSheet || 2999, // Use price from sheet or fallback to 2999\n      is_enabled: true\n    };\n  });\n\nif (variants.length === 0) {\n    throw new Error(`Could not find any matching variants for the provided IDs: ${requiredVariantIds.join(', ')}`);\n}\n\nconst all_variant_ids = variants.map(v => v.id);\n\n// --- UPDATED DESCRIPTION HANDLING ---\nlet description = blueprintDescriptionMap.get(String(productInfo.blueprint_id));\nif (!description) {\n  console.warn(`⚠️ Description for blueprint ID ${productInfo.blueprint_id} not found. Using generic fallback.`);\n  description = `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}.</p>`;\n}\n\n// 1. Replace placeholders like {{petname}}\nlet processedDescription = description\n  .replace(/{{petname}}/g, productInfo.petname)\n  .replace(/{{theme_name}}/g, productInfo.theme_name);\n\n// 2. Convert paragraph and heading breaks to a unique placeholder\nprocessedDescription = processedDescription.replace(/<\\/p>|<\\/h[1-6]>/gi, '__BREAK__');\n\n// 3. Now, strip all remaining HTML tags and non-breaking spaces\nlet cleanText = processedDescription.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();\n\n// 4. Convert the placeholder to standard HTML line breaks for Shopify\nconst finalDescription = cleanText.replace(/(__BREAK__\\s*)+/g, '<br><br>');\n\n\n// --- HARD-CODED PLACEMENT SETTINGS (No change here) ---\nconst imagePlacementMap = {\n   //tshirt\n 12 : { x: 0.5,y: 0.5045,scale: 0.8,angle: 0},\n\n  //Color Accent Mug\n  635: { x: 0.20573430849374247,\n         y: 0.4950372661929266,\n       scale: 0.31111111111111106,\n      angle: 0},\n\n  //Tough phone case-iPhone\n  421: {x: 0.5533677600162773,\n          y: 0.5141509433962264,\n        scale: 1,\n        angle: 0},\n  \n//Tough phone case-Samsung\n  421: {x: 0.5533677600162773,\n          y: 0.5141509433962264,\n        scale: 1,\n        angle: 0},\n  \n\n  //framed poster \n  764 : { x : 0.5, y: 0.5, scale : 1, angle : 0}, \n\n  //canvas portrait\n  937 : {x: 0.5,\n        y: 0.5000067762626349,\n         scale: 0.9999999999999997,\n          angle: 0}\n  // Add more as needed\n};\nconst fallbackPlacement = { x: 0.5, y: 0.5, scale: 1, angle: 0 };\nconst placement = imagePlacementMap[productInfo.blueprint_id] || fallbackPlacement;\n\n// --- Payload Assembly ---\nconst payload = {\n  \"title\": productInfo.product_title,\n  \"description\": finalDescription, // Use the new clean description\n  \"blueprint_id\": productInfo.blueprint_id,\n  \"print_provider_id\": productInfo.print_provider_id,\n  \"variants\": variants,\n  \"print_areas\": [\n    {\n      \"variant_ids\": all_variant_ids,\n      \"placeholders\": [\n        {\n          \"position\": placeholderPosition,\n          \"images\": [\n            {\n              \"id\": uploadedImage.id,\n              \"x\": placement.x,\n              \"y\": placement.y,\n              \"scale\": placement.scale,\n              \"angle\": placement.angle\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"tags\": [\n    $('When Executed by Another Workflow').first().json.email,\n    $('When Executed by Another Workflow').first().json.petGender,\n    $('When Executed by Another Workflow').first().json.petKind,\n    $('When Executed by Another Workflow').first().json.session_id,\n    $('When Executed by Another Workflow').first().json.petname,\n    productInfo.theme_name\n  ]\n};\n\n// --- THIS IS THE FINAL, CORRECTED LOGIC ---\n// Add print_details object for the canvas product, as you discovered.\nif (productInfo.blueprint_id === 937) {\n  payload.print_details = {\n    \"print_on_side\": \"mirror\" // Use \"regular\" for print on sides\n  };\n  console.log(`✅ Added print_details object for Canvas Portrait.`);\n}\n// Return the final data\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1392,
+        448
+      ],
+      "id": "f3a05b6e-10b4-4ab4-a77c-6452d473a631",
+      "name": "Prepare_Printify_Product_Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.printifyPayload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1104,
+        448
+      ],
+      "id": "59316017-2aa9-493a-96a2-0b22a08c397d",
+      "name": "Create_Printify_Product",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('Create_Printify_Product').item.json.id }}/publish.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": false,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        448
+      ],
+      "id": "89ad090b-813c-4df8-b0d7-4228c2ee5159",
+      "name": "Publish_Printify_Product",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1632,
+        448
+      ],
+      "id": "98028b37-26b2-4f50-9bed-ac7e889f2ca5",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f46f174-b276-433a-a2a8-d11be21fa51f",
+              "name": "image_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1632,
+        192
+      ],
+      "id": "cfef09b1-f691-4a6a-8a8d-588cc152872c",
+      "name": "Set_Image_ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef95f814-d688-40a2-807b-65ee4b93962b",
+              "name": "product_title_to_find",
+              "value": "={{ $('Prepare_Printify_Product_Payload').item.json.printifyPayload.title }}",
+              "type": "string"
+            },
+            {
+              "id": "24b43e63-f731-4664-aa97-306bc09ceb41",
+              "name": "session_id_tag",
+              "value": "={{ $('When Executed by Another Workflow').first().json.session_id }}",
+              "type": "string"
+            },
+            {
+              "id": "2e2f8b66-3a65-4a2d-8e9b-7b924f814b82",
+              "name": "curated_image_url",
+              "value": "={{ $('Construct_Curated_Mockups').item.json.curatedImageUrls }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -384,
+        464
+      ],
+      "id": "b7ac06f8-df98-4c68-be86-8e185a593ae7",
+      "name": "Preserve_Product_Data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query findProductByTitleAndTag($query: String!) {\\n  products(first: 1, query: $query) {\\n    edges {\\n      node {\\n        id\\n        title\\n        variants(first: 100) {\\n          edges {\\n            node {\\n              id\\n            }\\n          }\\n        }\\n      }\\n    }\\n  }\\n}\",\n  \"variables\": {\n    \"query\": \"title:'{{ $json.product_title_to_find }}' AND tag:'{{ $json.session_id_tag }}'\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d4cba1c5-33b7-41fa-95a0-b59579c4a4c3",
+      "name": "Search_Shopify_Product_by_GraphQL",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// This node takes the response from the Printify product creation\n// and constructs a curated list of mockup URLs based on a predefined map.\n\n// --- CONFIGURATION: The Mockup Map ---\n// You must manually find these values from your Printify templates\n// for every product blueprint you want to support.\nconst mockupMap = {\n  // Key: blueprint_id\n  12: { // Bella + Canvas 3001 (Unisex T-shirt)\n    // List of mockups you want for this product.\n    // The \"id\" is the magic number from the URL.\n    mockups: [\n      { id: 92584, camera_label: 'lifestyle' },\n      { id: 102044, camera_label: 'front-2' },\n      { id: 102050, camera_label: 'size-chart' }\n    ],\n    // The base name for the image file in the URL\n    template_name: 'template-premium-cotton-unisex-t-shirt'\n  },\n  // Add other blueprints here, for example:\n  // 635: { // Color Accent Mug\n  //   mockups: [ ... ],\n  //   template_name: 'template-color-accent-mug'\n  // }\n};\n\nconst createdProduct = $input.item.json;\nconst blueprintId = $('Prepare_Printify_Product_Payload').item.json.blueprint_id;\n\n// Find the mockup configuration for this blueprint\nconst config = mockupMap[blueprintId];\nif (!config) {\n  console.warn(`⚠️ No mockup configuration found for blueprint_id: ${blueprintId}. No curated mockups will be generated.`);\n  // Pass through the data without curated URLs\n  return [{ json: { ...createdProduct, curatedImageUrls: [] } }];\n}\n\nconst newProductId = createdProduct.id;\nconst curatedImageUrls = [];\n\n// We only need one variant ID to generate the common mockups\n// Printify often uses the \"default\" variant for this.\nconst defaultVariant = createdProduct.variants.find(v => v.is_default);\nif (!defaultVariant) {\n  throw new Error(`Could not find a default variant for product ${newProductId}`);\n}\nconst referenceVariantId = defaultVariant.id;\n\n// Loop through our desired mockups and build the URLs\nfor (const mockup of config.mockups) {\n  const imageUrl = `https://images.printify.com/mockup/${newProductId}/${referenceVariantId}/${mockup.id}/${config.template_name}.jpg?camera_label=${mockup.camera_label}`;\n  curatedImageUrls.push(imageUrl);\n  console.log(`✅ Constructed URL: ${imageUrl}`);\n}\n\n// Pass along the original data from the creation step,\n// but add our new array of curated mockup URLs.\nreturn [{\n  json: {\n    ...createdProduct,\n    curatedImageUrls: curatedImageUrls\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        448
+      ],
+      "id": "a0b97513-940e-4e15-bb40-af6b198b2e33",
+      "name": "Construct_Curated_Mockups"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        592,
+        416
+      ],
+      "id": "4a5d3e9e-228c-4c81-9ad3-5ea84da99c5c",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the single item from the Merge node\nconst inputData = $input.item.json;\n\n// 1. Parse the string of URLs into a real JavaScript array\nconst curatedImageUrls = JSON.parse(inputData.curated_image_url);\n\n// 2. Extract the GraphQL Product ID\nconst productNode = inputData.data.products.edges[0]?.node;\nif (!productNode) {\n  throw new Error(\"Product not found in the data from the search node. Cannot proceed.\");\n}\nconst graphQlProductId = productNode.id;\n\n// 3. Create the 'product' variable object\nconst productVariable = {\n  id: graphQlProductId\n};\n\n// 4. Create the 'media' variable array, using the correct key \"originalSource\"\nconst mediaVariable = curatedImageUrls.map(url => ({\n  originalSource: url,\n  mediaContentType: 'IMAGE'\n}));\n\n// 5. Return a final object that has two top-level keys: \"product\" and \"media\"\nreturn {\n  json: {\n    product: productVariable,\n    media: mediaVariable\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        656
+      ],
+      "id": "fab328b9-a20b-448a-95ad-7414936673cf",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "mutation productUpdate($product: ProductUpdateInput!, $media: [CreateMediaInput!]) {\n  productUpdate(product: $product, media: $media) {\n    product {\n      id\n      media(first: 10) {\n        edges {\n          node {\n            ... on MediaImage {\n              id\n              image {\n                url\n              }\n            }\n          }\n        }\n      }\n    }\n    userErrors {\n      field\n      message\n    }\n  }\n}",
+        "variables": "={{$json}}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        656
+      ],
+      "id": "869739a8-a651-4a70-b847-4ec86af84cfe",
+      "name": "GraphQL1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "query findProductByTitleAndTag($query: String!) {\n  products(first: 1, query: $query) {\n    edges {\n      node {\n        id\n        title\n        variants(first: 100) {\n          edges {\n            node {\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"query\": \"title:'{{ $('Preserve_Product_Data').item.json.product_title_to_find }}' AND tag:'{{ $('Preserve_Product_Data').item.json.session_id_tag }}'\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        272
+      ],
+      "id": "621278ba-82dc-4d38-b999-065f42367ac9",
+      "name": "Search_ShopifyProduct",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -176,
+        464
+      ],
+      "id": "42f1cf5e-8e20-4a7f-85fa-ca03e6b26074",
+      "name": "Wait",
+      "webhookId": "b457fb85-d795-45f1-afc4-85de635de114"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4128,
+        368
+      ],
+      "id": "8bd40d4d-949d-457f-a37e-48924a45c709",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const petKind = customerData.petkind || imageJson.petkind || \"Pet\";\n  const petGender = $input.first().json.petGender|| imageJson.petgender || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petGender: petGender,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3792,
+        384
+      ],
+      "id": "9d8d66f6-c28d-467e-b946-dfb0dc13f477",
+      "name": "Split_Product_Types"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.transformations.watermark }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n     {\n          \"namespace\": \"custom\",\n          \"key\": \"pet_kind\",                       \n          \"value\": \"{{ $json.petKind }}\",\n          \"type\": \"single_line_text_field\"\n     },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3520,
+        384
+      ],
+      "id": "eb1d7746-0eac-4eed-a1c4-410ce5a1fc62",
+      "name": "Create_shopify_collection1",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/17p4GRGITaLN-qIUb3YrGOZTusbqpV_mJ_brRLqS0jWA/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Output",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17p4GRGITaLN-qIUb3YrGOZTusbqpV_mJ_brRLqS0jWA/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -3808,
+        176
+      ],
+      "id": "87d3902c-b900-44a8-b1ce-8cfecad33a79",
+      "name": "Get_Variant_Pricing_From_Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rsPEEcMmuFCh0fvw",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Extract Collection Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Product Templates": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Upload_Image_To_Printify",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get_Print_Provider_Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map_Printify_Products": {
+      "main": [
+        [
+          {
+            "node": "Extract Collection Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload_Image_To_Printify": {
+      "main": [
+        [
+          {
+            "node": "Set_Image_ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Print_Provider_Variants": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_Printify_Product_Payload": {
+      "main": [
+        [
+          {
+            "node": "Create_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "Construct_Curated_Mockups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "Preserve_Product_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare_Printify_Product_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Image_ID": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Preserve_Product_Data": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct_Curated_Mockups": {
+      "main": [
+        [
+          {
+            "node": "Publish_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "GraphQL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search_ShopifyProduct": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Search_ShopifyProduct",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Split_Product_Types",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get_Variant_Pricing_From_Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_Product_Types": {
+      "main": [
+        [
+          {
+            "node": "Create_shopify_collection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_shopify_collection1": {
+      "main": [
+        [
+          {
+            "node": "Map_Printify_Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "1b305fb1-adc5-4549-b505-c031f180aebb",
+  "activeVersionId": "1b305fb1-adc5-4549-b505-c031f180aebb",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-08-21T09:29:04.744Z",
+      "createdAt": "2025-08-21T09:29:04.744Z",
+      "role": "workflow:owner",
+      "workflowId": "1ewTdbS69ZAvlGQT",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "1b305fb1-adc5-4549-b505-c031f180aebb",
+    "workflowId": "1ewTdbS69ZAvlGQT",
+    "nodes": [
+      {
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3008,
+          368
+        ],
+        "id": "df3cec10-a3f2-4620-8d7f-b61cc84e290f",
+        "name": "Extract Collection Data"
+      },
+      {
+        "parameters": {
+          "options": {
+            "reset": false
+          }
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -2224,
+          368
+        ],
+        "id": "8c9a580f-5420-4e13-a739-e2ff5cada832",
+        "name": "Loop Product Templates"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst outputItems = [];\n\n// Define your Printify products\nconst printifyProducts = {\n  \"clothing\": [\n    { \n      blueprint_id: 12, \n      print_provider_id: 331, \n      name: \"Premium Cotton Unisex T-shirt\",\n      variant_id:[18539,18540,18541,18542,18543,18544],\n      product_type: \"clothing\"\n    }\n    //black variants 18099,18100,18101,18102,18103,18104,\n  ],\n  \"other\": [\n    { \n      blueprint_id: 635, \n      print_provider_id: 94, \n      name: \"Color Accent Mug\",\n      variant_id:[72180,72183,72184,105888],\n      product_type: \"other\"\n    },\n    // { \n    //   blueprint_id: 421, \n    //   print_provider_id: 23, \n    //   name: \"Tough Phone Case - iPhone, Samsung, Google\",\n    //   variant_id:[75383,75385,75387,75389,77841,77843,77845,79425,80152,80154,80156,96397,96399,96401,96403,96738,96740,96742,98738,102547,102549,102551,102553,105148,105150,105152,105154,105156,112191,112193,112195,112197,116386,116388,116390,117862,117864,117866],\n    //   product_type: \"other\"\n    // },\n    { \n      blueprint_id: 421, \n      print_provider_id: 23, \n      name: \"Tough Phone Case - iPhone\",\n      variant_id:[75383,75385,75387,75389,96397,96399,96401,96403,102547,102549,102551,102553,112191,112193,112195,112197],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 421, \n      print_provider_id: 23, \n      name: \"Tough Phone Case - Samsung\",\n      variant_id:[77841,77843,77845,79425,80152,80154,80156,96738,96740,96742,105148,105150,105152,117862,117864,117866],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 764, \n      print_provider_id: 72, \n      name: \"Premium Framed Poster\",\n      variant_id:[75328,75330,75332],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 937, \n      print_provider_id: 105, \n      name: \"Canvas Portrait\",\n      variant_id: [95213,95214], \n      product_type: \"other\"\n    }    \n  ]\n};\n\n// Get source data from Split_Product_Types node\nconst allSourceData = $('Split_Product_Types').all();\n\n// Cloudinary config\nconst cloudName = 'myfurryprints';\nconst maskId = 'Mask3larger_jpm63l';\nconst CLOTHING_TX = `e_upscale/c_scale,w_4000/l_${maskId},w_4000,fl_cutter`;\nconst OTHER_TX = `e_upscale/c_scale,w_4000`;\n\n// Helper to build the Cloudinary URL based on product type\nfunction buildImageUrl(productType, publicId) {\n  const base = `https://res.cloudinary.com/${cloudName}/image/upload`;\n  return productType === 'clothing'\n    ? `${base}/${CLOTHING_TX}/${publicId}`\n    : `${base}/${OTHER_TX}/${publicId}`;\n}\n\n// Main loop\nitems.forEach(item => {\n  const collection = item.json.custom_collection;\n\n  const sourceDataItem = allSourceData.find(\n    sourceItem => sourceItem.json.collection_name === collection.title\n  );\n\n  if (!collection || !sourceDataItem) return; // skip if either is missing\n\n  const sourceData = sourceDataItem.json;\n  const publicId = sourceData.public_id;\n\n  // Combine clothing and other products into one loop\n  const allProducts = [...printifyProducts.clothing, ...printifyProducts.other];\n\n  allProducts.forEach(product => {\n    const imageUrl = buildImageUrl(product.product_type, publicId);\n\n    outputItems.push({\n      json: {\n        session_id:            sourceData.session_id,\n        email:                 sourceData.email,\n        petname:               sourceData.petname,\n        customer_name:         sourceData.customer_name,\n        promptIndex:           sourceData.promptIndex,\n        theme_name:            sourceData.theme_name,\n        shopify_collection_id: collection.id,\n\n        product_type:          product.product_type,\n        image_url:             imageUrl,\n        blueprint_id:          product.blueprint_id,\n        print_provider_id:     product.print_provider_id,\n        product_title:         `${sourceData.theme_name} - ${product.name}`,\n        template_name:         product.name,\n        required_variant_ids:  product.variant_id \n      }\n    });\n\n    console.log(`✅ Created ${product.product_type} product with URL: ${imageUrl}`);\n  });\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3232,
+          368
+        ],
+        "id": "7534c776-1136-4bc4-9221-7535f40a329d",
+        "name": "Map_Printify_Products"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.printify.com/v1/uploads/images.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"file_name\": \"{{ $json.petname }}_{{ $json.theme_name }}.jpg\",\n  \"url\": \"{{ $json.image_url }}\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1888,
+          192
+        ],
+        "id": "6e53704e-4b04-43d0-8d49-7592ee9563a3",
+        "name": "Upload_Image_To_Printify",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.blueprint_id }}/print_providers/{{ $json.print_provider_id }}/variants.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1888,
+          432
+        ],
+        "id": "122226d0-cb38-426d-b455-cd60afcabf63",
+        "name": "Get_Print_Provider_Variants",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "ZwQuXy3mFoa7bh3H",
+            "name": "cloudinaryFurryPrints"
+          },
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Prepare_Printify_Product_Payload\" (ID: d98090aa-3355-4fc8-bc41-63373c3e29c7)\n\n// --- NEW: Read all variant data from the Google Sheet node ---\nconst sheetData = $('Get_Variant_Pricing_From_Sheet').all();\n\n// --- NEW: Create Maps for fast lookups. One for prices, one for descriptions ---\nconst variantPriceMap = new Map();\nconst blueprintDescriptionMap = new Map();\n\nfor (const item of sheetData) {\n  const { variant_id, price, blueprint_id, product_description } = item.json;\n  \n  // Map each variant_id to its price\n  if (variant_id && price !== undefined) {\n    variantPriceMap.set(String(variant_id), parseInt(price, 10));\n  }\n  \n  // Map each blueprint_id to a description. This avoids storing redundant descriptions.\n  // We only store the first valid description we find for a blueprint.\n  if (blueprint_id && product_description && !blueprintDescriptionMap.has(String(blueprint_id))) {\n    blueprintDescriptionMap.set(String(blueprint_id), product_description);\n  }\n}\nconsole.log(`Loaded ${variantPriceMap.size} prices and ${blueprintDescriptionMap.size} descriptions from the sheet.`);\n\n\n// 1. Get the original data from the start of the loop\nconst productInfo = $('Loop Product Templates').item.json;\n\n// 2. Get the result of the image upload\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\n\n// 3. Get the result of the variants API call\nconst providerVariantsResponse = $input.item.json;\n\n// --- Error Checking ---\nif (!productInfo || !productInfo.product_title) {\n  throw new Error(\"Could not find original product data from the loop.\");\n}\nif (!uploadedImage || !uploadedImage.id) {\n  throw new Error(\"Could not find a valid image ID from the upload step.\");\n}\nif (!providerVariantsResponse || !providerVariantsResponse.variants) {\n  throw new Error(\"Could not find a valid variants array from the API call.\");\n}\n\nconst placeholderPosition = providerVariantsResponse.variants?.[0]?.print_areas?.[0]?.placeholders?.[0]?.position || \"front\";\nconst requiredVariantIds = productInfo.required_variant_ids;\n\n// --- UPDATED LOGIC: Set price for each variant based on the Google Sheet ---\nconst variants = providerVariantsResponse.variants\n  .filter(variant => requiredVariantIds.includes(variant.id))\n  .map(variant => {\n    // Look up the price from our map\n    const priceFromSheet = variantPriceMap.get(String(variant.id));\n\n    if (priceFromSheet === undefined) {\n      console.warn(`⚠️ Price for variant ID ${variant.id} not found in Google Sheet. Using fallback price.`);\n    }\n\n    return {\n      id: variant.id,\n      price: priceFromSheet || 2999, // Use price from sheet or fallback to 2999\n      is_enabled: true\n    };\n  });\n\nif (variants.length === 0) {\n    throw new Error(`Could not find any matching variants for the provided IDs: ${requiredVariantIds.join(', ')}`);\n}\n\nconst all_variant_ids = variants.map(v => v.id);\n\n// --- UPDATED DESCRIPTION HANDLING ---\nlet description = blueprintDescriptionMap.get(String(productInfo.blueprint_id));\nif (!description) {\n  console.warn(`⚠️ Description for blueprint ID ${productInfo.blueprint_id} not found. Using generic fallback.`);\n  description = `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}.</p>`;\n}\n\n// 1. Replace placeholders like {{petname}}\nlet processedDescription = description\n  .replace(/{{petname}}/g, productInfo.petname)\n  .replace(/{{theme_name}}/g, productInfo.theme_name);\n\n// 2. Convert paragraph and heading breaks to a unique placeholder\nprocessedDescription = processedDescription.replace(/<\\/p>|<\\/h[1-6]>/gi, '__BREAK__');\n\n// 3. Now, strip all remaining HTML tags and non-breaking spaces\nlet cleanText = processedDescription.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();\n\n// 4. Convert the placeholder to standard HTML line breaks for Shopify\nconst finalDescription = cleanText.replace(/(__BREAK__\\s*)+/g, '<br><br>');\n\n\n// --- HARD-CODED PLACEMENT SETTINGS (No change here) ---\nconst imagePlacementMap = {\n   //tshirt\n 12 : { x: 0.5,y: 0.5045,scale: 0.8,angle: 0},\n\n  //Color Accent Mug\n  635: { x: 0.20573430849374247,\n         y: 0.4950372661929266,\n       scale: 0.31111111111111106,\n      angle: 0},\n\n  //Tough phone case-iPhone\n  421: {x: 0.5533677600162773,\n          y: 0.5141509433962264,\n        scale: 1,\n        angle: 0},\n  \n//Tough phone case-Samsung\n  421: {x: 0.5533677600162773,\n          y: 0.5141509433962264,\n        scale: 1,\n        angle: 0},\n  \n\n  //framed poster \n  764 : { x : 0.5, y: 0.5, scale : 1, angle : 0}, \n\n  //canvas portrait\n  937 : {x: 0.5,\n        y: 0.5000067762626349,\n         scale: 0.9999999999999997,\n          angle: 0}\n  // Add more as needed\n};\nconst fallbackPlacement = { x: 0.5, y: 0.5, scale: 1, angle: 0 };\nconst placement = imagePlacementMap[productInfo.blueprint_id] || fallbackPlacement;\n\n// --- Payload Assembly ---\nconst payload = {\n  \"title\": productInfo.product_title,\n  \"description\": finalDescription, // Use the new clean description\n  \"blueprint_id\": productInfo.blueprint_id,\n  \"print_provider_id\": productInfo.print_provider_id,\n  \"variants\": variants,\n  \"print_areas\": [\n    {\n      \"variant_ids\": all_variant_ids,\n      \"placeholders\": [\n        {\n          \"position\": placeholderPosition,\n          \"images\": [\n            {\n              \"id\": uploadedImage.id,\n              \"x\": placement.x,\n              \"y\": placement.y,\n              \"scale\": placement.scale,\n              \"angle\": placement.angle\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"tags\": [\n    $('When Executed by Another Workflow').first().json.email,\n    $('When Executed by Another Workflow').first().json.petGender,\n    $('When Executed by Another Workflow').first().json.petKind,\n    $('When Executed by Another Workflow').first().json.session_id,\n    $('When Executed by Another Workflow').first().json.petname,\n    productInfo.theme_name\n  ]\n};\n\n// --- THIS IS THE FINAL, CORRECTED LOGIC ---\n// Add print_details object for the canvas product, as you discovered.\nif (productInfo.blueprint_id === 937) {\n  payload.print_details = {\n    \"print_on_side\": \"mirror\" // Use \"regular\" for print on sides\n  };\n  console.log(`✅ Added print_details object for Canvas Portrait.`);\n}\n// Return the final data\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1392,
+          448
+        ],
+        "id": "f3a05b6e-10b4-4ab4-a77c-6452d473a631",
+        "name": "Prepare_Printify_Product_Payload"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.printifyPayload }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1104,
+          448
+        ],
+        "id": "59316017-2aa9-493a-96a2-0b22a08c397d",
+        "name": "Create_Printify_Product",
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('Create_Printify_Product').item.json.id }}/publish.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": false,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -672,
+          448
+        ],
+        "id": "89ad090b-813c-4df8-b0d7-4228c2ee5159",
+        "name": "Publish_Printify_Product",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineByPosition",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          -1632,
+          448
+        ],
+        "id": "98028b37-26b2-4f50-9bed-ac7e889f2ca5",
+        "name": "Merge"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "6f46f174-b276-433a-a2a8-d11be21fa51f",
+                "name": "image_id",
+                "value": "={{ $json.id }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -1632,
+          192
+        ],
+        "id": "cfef09b1-f691-4a6a-8a8d-588cc152872c",
+        "name": "Set_Image_ID"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "ef95f814-d688-40a2-807b-65ee4b93962b",
+                "name": "product_title_to_find",
+                "value": "={{ $('Prepare_Printify_Product_Payload').item.json.printifyPayload.title }}",
+                "type": "string"
+              },
+              {
+                "id": "24b43e63-f731-4664-aa97-306bc09ceb41",
+                "name": "session_id_tag",
+                "value": "={{ $('When Executed by Another Workflow').first().json.session_id }}",
+                "type": "string"
+              },
+              {
+                "id": "2e2f8b66-3a65-4a2d-8e9b-7b924f814b82",
+                "name": "curated_image_url",
+                "value": "={{ $('Construct_Curated_Mockups').item.json.curatedImageUrls }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -384,
+          464
+        ],
+        "id": "b7ac06f8-df98-4c68-be86-8e185a593ae7",
+        "name": "Preserve_Product_Data"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"query\": \"query findProductByTitleAndTag($query: String!) {\\n  products(first: 1, query: $query) {\\n    edges {\\n      node {\\n        id\\n        title\\n        variants(first: 100) {\\n          edges {\\n            node {\\n              id\\n            }\\n          }\\n        }\\n      }\\n    }\\n  }\\n}\",\n  \"variables\": {\n    \"query\": \"title:'{{ $json.product_title_to_find }}' AND tag:'{{ $json.session_id_tag }}'\"\n  }\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          0
+        ],
+        "id": "d4cba1c5-33b7-41fa-95a0-b59579c4a4c3",
+        "name": "Search_Shopify_Product_by_GraphQL",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// This node takes the response from the Printify product creation\n// and constructs a curated list of mockup URLs based on a predefined map.\n\n// --- CONFIGURATION: The Mockup Map ---\n// You must manually find these values from your Printify templates\n// for every product blueprint you want to support.\nconst mockupMap = {\n  // Key: blueprint_id\n  12: { // Bella + Canvas 3001 (Unisex T-shirt)\n    // List of mockups you want for this product.\n    // The \"id\" is the magic number from the URL.\n    mockups: [\n      { id: 92584, camera_label: 'lifestyle' },\n      { id: 102044, camera_label: 'front-2' },\n      { id: 102050, camera_label: 'size-chart' }\n    ],\n    // The base name for the image file in the URL\n    template_name: 'template-premium-cotton-unisex-t-shirt'\n  },\n  // Add other blueprints here, for example:\n  // 635: { // Color Accent Mug\n  //   mockups: [ ... ],\n  //   template_name: 'template-color-accent-mug'\n  // }\n};\n\nconst createdProduct = $input.item.json;\nconst blueprintId = $('Prepare_Printify_Product_Payload').item.json.blueprint_id;\n\n// Find the mockup configuration for this blueprint\nconst config = mockupMap[blueprintId];\nif (!config) {\n  console.warn(`⚠️ No mockup configuration found for blueprint_id: ${blueprintId}. No curated mockups will be generated.`);\n  // Pass through the data without curated URLs\n  return [{ json: { ...createdProduct, curatedImageUrls: [] } }];\n}\n\nconst newProductId = createdProduct.id;\nconst curatedImageUrls = [];\n\n// We only need one variant ID to generate the common mockups\n// Printify often uses the \"default\" variant for this.\nconst defaultVariant = createdProduct.variants.find(v => v.is_default);\nif (!defaultVariant) {\n  throw new Error(`Could not find a default variant for product ${newProductId}`);\n}\nconst referenceVariantId = defaultVariant.id;\n\n// Loop through our desired mockups and build the URLs\nfor (const mockup of config.mockups) {\n  const imageUrl = `https://images.printify.com/mockup/${newProductId}/${referenceVariantId}/${mockup.id}/${config.template_name}.jpg?camera_label=${mockup.camera_label}`;\n  curatedImageUrls.push(imageUrl);\n  console.log(`✅ Constructed URL: ${imageUrl}`);\n}\n\n// Pass along the original data from the creation step,\n// but add our new array of curated mockup URLs.\nreturn [{\n  json: {\n    ...createdProduct,\n    curatedImageUrls: curatedImageUrls\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -896,
+          448
+        ],
+        "id": "a0b97513-940e-4e15-bb40-af6b198b2e33",
+        "name": "Construct_Curated_Mockups"
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineByPosition",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          592,
+          416
+        ],
+        "id": "4a5d3e9e-228c-4c81-9ad3-5ea84da99c5c",
+        "name": "Merge1"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Get the single item from the Merge node\nconst inputData = $input.item.json;\n\n// 1. Parse the string of URLs into a real JavaScript array\nconst curatedImageUrls = JSON.parse(inputData.curated_image_url);\n\n// 2. Extract the GraphQL Product ID\nconst productNode = inputData.data.products.edges[0]?.node;\nif (!productNode) {\n  throw new Error(\"Product not found in the data from the search node. Cannot proceed.\");\n}\nconst graphQlProductId = productNode.id;\n\n// 3. Create the 'product' variable object\nconst productVariable = {\n  id: graphQlProductId\n};\n\n// 4. Create the 'media' variable array, using the correct key \"originalSource\"\nconst mediaVariable = curatedImageUrls.map(url => ({\n  originalSource: url,\n  mediaContentType: 'IMAGE'\n}));\n\n// 5. Return a final object that has two top-level keys: \"product\" and \"media\"\nreturn {\n  json: {\n    product: productVariable,\n    media: mediaVariable\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          784,
+          656
+        ],
+        "id": "fab328b9-a20b-448a-95ad-7414936673cf",
+        "name": "Code1"
+      },
+      {
+        "parameters": {
+          "authentication": "headerAuth",
+          "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+          "query": "mutation productUpdate($product: ProductUpdateInput!, $media: [CreateMediaInput!]) {\n  productUpdate(product: $product, media: $media) {\n    product {\n      id\n      media(first: 10) {\n        edges {\n          node {\n            ... on MediaImage {\n              id\n              image {\n                url\n              }\n            }\n          }\n        }\n      }\n    }\n    userErrors {\n      field\n      message\n    }\n  }\n}",
+          "variables": "={{$json}}"
+        },
+        "type": "n8n-nodes-base.graphql",
+        "typeVersion": 1.1,
+        "position": [
+          1152,
+          656
+        ],
+        "id": "869739a8-a651-4a70-b847-4ec86af84cfe",
+        "name": "GraphQL1",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "authentication": "headerAuth",
+          "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+          "query": "query findProductByTitleAndTag($query: String!) {\n  products(first: 1, query: $query) {\n    edges {\n      node {\n        id\n        title\n        variants(first: 100) {\n          edges {\n            node {\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n}",
+          "variables": "={\n  \"query\": \"title:'{{ $('Preserve_Product_Data').item.json.product_title_to_find }}' AND tag:'{{ $('Preserve_Product_Data').item.json.session_id_tag }}'\"\n}"
+        },
+        "type": "n8n-nodes-base.graphql",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          272
+        ],
+        "id": "621278ba-82dc-4d38-b999-065f42367ac9",
+        "name": "Search_ShopifyProduct",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "amount": 30
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -176,
+          464
+        ],
+        "id": "42f1cf5e-8e20-4a7f-85fa-ca03e6b26074",
+        "name": "Wait",
+        "webhookId": "b457fb85-d795-45f1-afc4-85de635de114"
+      },
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -4128,
+          368
+        ],
+        "id": "8bd40d4d-949d-457f-a37e-48924a45c709",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const petKind = customerData.petkind || imageJson.petkind || \"Pet\";\n  const petGender = $input.first().json.petGender|| imageJson.petgender || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petGender: petGender,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3792,
+          384
+        ],
+        "id": "9d8d66f6-c28d-467e-b946-dfb0dc13f477",
+        "name": "Split_Product_Types"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.transformations.watermark }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n     {\n          \"namespace\": \"custom\",\n          \"key\": \"pet_kind\",                       \n          \"value\": \"{{ $json.petKind }}\",\n          \"type\": \"single_line_text_field\"\n     },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3520,
+          384
+        ],
+        "id": "eb1d7746-0eac-4eed-a1c4-410ce5a1fc62",
+        "name": "Create_shopify_collection1",
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "https://docs.google.com/spreadsheets/d/17p4GRGITaLN-qIUb3YrGOZTusbqpV_mJ_brRLqS0jWA/edit?gid=0#gid=0",
+            "mode": "url"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Output",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17p4GRGITaLN-qIUb3YrGOZTusbqpV_mJ_brRLqS0jWA/edit#gid=0"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          -3808,
+          176
+        ],
+        "id": "87d3902c-b900-44a8-b1ce-8cfecad33a79",
+        "name": "Get_Variant_Pricing_From_Sheet",
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "rsPEEcMmuFCh0fvw",
+            "name": "Google Sheets account 2"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Extract Collection Data": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Product Templates": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Upload_Image_To_Printify",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Get_Print_Provider_Variants",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Map_Printify_Products": {
+        "main": [
+          [
+            {
+              "node": "Extract Collection Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload_Image_To_Printify": {
+        "main": [
+          [
+            {
+              "node": "Set_Image_ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get_Print_Provider_Variants": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare_Printify_Product_Payload": {
+        "main": [
+          [
+            {
+              "node": "Create_Printify_Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_Printify_Product": {
+        "main": [
+          [
+            {
+              "node": "Construct_Curated_Mockups",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Publish_Printify_Product": {
+        "main": [
+          [
+            {
+              "node": "Preserve_Product_Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Prepare_Printify_Product_Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set_Image_ID": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Preserve_Product_Data": {
+        "main": [
+          [
+            {
+              "node": "Merge1",
+              "type": "main",
+              "index": 1
+            },
+            {
+              "node": "Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Construct_Curated_Mockups": {
+        "main": [
+          [
+            {
+              "node": "Publish_Printify_Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge1": {
+        "main": [
+          [
+            {
+              "node": "Code1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code1": {
+        "main": [
+          [
+            {
+              "node": "GraphQL1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Search_ShopifyProduct": {
+        "main": [
+          [
+            {
+              "node": "Merge1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait": {
+        "main": [
+          [
+            {
+              "node": "Search_ShopifyProduct",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Split_Product_Types",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Get_Variant_Pricing_From_Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split_Product_Types": {
+        "main": [
+          [
+            {
+              "node": "Create_shopify_collection1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_shopify_collection1": {
+        "main": [
+          [
+            {
+              "node": "Map_Printify_Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-09-01T05:22:28.777Z",
+        "id": 16,
+        "workflowId": "1ewTdbS69ZAvlGQT",
+        "versionId": "1b305fb1-adc5-4549-b505-c031f180aebb",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
