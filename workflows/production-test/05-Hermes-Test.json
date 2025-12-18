@@ -1,0 +1,2088 @@
+{
+  "updatedAt": "2025-12-18T05:59:48.992Z",
+  "createdAt": "2025-11-24T16:27:43.260Z",
+  "id": "53JGVVCvQQ1bo3sV",
+  "name": "05-Hermes-Test",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/rpop/myfurryprints_queue_test",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        352
+      ],
+      "id": "e8b5f5d1-23d9-4d52-8c05-2391f5599d89",
+      "name": "CheckQueueForMore",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        352
+      ],
+      "id": "462b0c82-9204-493a-9832-73cb8be6d4e4",
+      "name": "IfQueueHasJobs"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c4294e8d-e7bf-40b0-89db-4188b1142c02",
+      "name": "Create Gallery Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -848,
+        160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    petname: $('Process Collections').first().json.petname,\n    phoneNumber: $('Debug Gallery Data1').first().json.phoneNumber,\n    page_url: pageUrl,\n    admin_url: `https://j4zewh-kg.myshopify.com/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+      },
+      "id": "f1ed23a8-c98b-49c3-9474-7e42225e3286",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'artwork-' + $input.first().json.session_id ,\n  petname: config.petname ,\n  phoneNumber: config.phoneNumber// <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+      },
+      "id": "fd623345-171b-44b9-a5ff-7aa4de573c34",
+      "name": "Process Collections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendTemplate",
+        "templateId": 1,
+        "receipients": "={{ $('Set Configuration').item.json.email + ', support@myfurryprints.com'}}",
+        "additionalFields": {
+          "templateParameters": {
+            "parameterValues": {
+              "parameters": "=registrationUrl={{ $('Format Response').item.json.page_url }},petname={{ $('prepare contact data').item.json.PET_NAME }}"
+            }
+          }
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        496,
+        160
+      ],
+      "id": "11247e04-aa6d-4043-895d-c3e2966afe8b",
+      "name": "Brevo",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "shopify_store_url",
+              "stringValue": "myfurryprints.com"
+            },
+            {
+              "name": "collection_handles",
+              "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+            },
+            {
+              "name": "email",
+              "stringValue": "={{ $json.email }}"
+            },
+            {
+              "name": "phoneNumber",
+              "stringValue": "={{ $('extracting handle1').item.json.phoneNumber }}"
+            },
+            {
+              "name": "petname",
+              "stringValue": "={{ $json.petname }}"
+            },
+            {
+              "name": "admin_store_url",
+              "stringValue": "j4zewh-kg.myshopify.com"
+            },
+            {
+              "name": "session_id",
+              "stringValue": "={{ $('extracting handle1').item.json.sessionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ca480c49-3f8f-444f-b846-d862f8426cb0",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        -1488,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1712,
+        160
+      ],
+      "id": "692e665d-065a-43ba-a4d3-bba92061af81",
+      "name": "Consolidate Gallery Data1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+              "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+              "rightValue": 201,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "894adea4-c6a8-4d58-8742-0d5d5f46131c",
+      "name": "Validate Gallery Creation1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+      },
+      "id": "84c52fa1-6014-423a-b035-08408e3225c4",
+      "name": "Debug Gallery Data1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1072,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\nconst phoneNumber = firstItem.phoneNumber || ''; // Extract phone number\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    phoneNumber,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        160
+      ],
+      "id": "9dd00645-4f61-4017-8c7d-bfcc4a151c2c",
+      "name": "extracting handle1"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2272,
+        160
+      ],
+      "id": "d000fe26-6f0e-4ad2-9e3c-0a2fb92918aa",
+      "name": "Trigger From Ford"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/transactionalSMS/sms",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sender\": \"FurryPrints\",\n  \"recipient\": \"{{ $('Format Response').item.json.phoneNumber.replace(/\\s/g, '') }}\",\n  \"content\": \"🎉 {{ $('Format Response').item.json.petname }}’s artwork is ready! Tap here to see those adorable portraits 😍 {{ $('Format Response').item.json.page_url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        -112
+      ],
+      "id": "7e40bfaa-3da5-4358-9b5f-0b84bbea3494",
+      "name": "send sms",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aFcAEYavGsDojoat",
+          "name": "Brevo api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "ameena.k@gauger.in,  iamdanielsuresh@gmail.com, muhasin23@gmail.com",
+        "subject": "={{ $('Format Response').item.json.petname }}'s Artwork page is created !",
+        "message": "=<div style=\"font-family: Arial, sans-serif; font-size: 16px; color: #333; line-height: 1.5;\">\n  <!-- Header -->\n  <p style=\"font-size: 24px; font-weight: bold; margin-bottom: 5px;\">\n    Hi Team 👋\n  </p>\n\n  <!-- Good news -->\n  <p style=\"font-size: 18px; font-weight: bold; color: #28a745; margin-top: 0;\">\n    🎉 Good news! 🎉\n  </p>\n\n  <!-- Message -->\n  <p style=\"margin: 10px 0;\">\n    We have successfully created the gallery page for \n    <span style=\"font-size: 20px; font-weight: bold; color: #000;\">\n      {{ $('Format Response').item.json.petname }}\n    </span>.\n  </p>\n\n  <!-- Link -->\n  <p style=\"margin: 10px 0;\">\n    Click on the link below to view the page:<br>\n    <a href=\"{{ $('Format Response').item.json.page_url }}\" style=\"color: #1a73e8; text-decoration: none; font-weight: bold;\">\n      {{ $('Format Response').item.json.page_url }}\n    </a>\n  </p>\n\n  <!-- Closing -->\n  <p style=\"margin-top: 15px; font-style: italic; font-weight: bold; color: orange;\">\n    Great work guys! 💪🔥\n  </p>\n</div>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        704,
+        384
+      ],
+      "id": "caa431ba-e146-41cf-8bea-ead2ad811183",
+      "name": "team message",
+      "webhookId": "35a736a6-fcf1-4b27-b93f-daf18f592bd0",
+      "alwaysOutputData": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FsfUD7AAk7DNnm5t",
+          "name": "Gmail account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://honest-ghoul-37248.upstash.io/get/worker_slot_{{ $('Trigger From Ford').first().json.slot_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1712,
+        496
+      ],
+      "id": "48d699c7-37aa-40a2-ac0a-905995d5b9a7",
+      "name": "Verify Ownership1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1f4ddce0-4115-448c-b70c-89521bd7c847",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "={{ $('Trigger From Ford').first().json.worker_token }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1984,
+        496
+      ],
+      "id": "0a649698-ff4c-474f-8ffb-ec7578db9d5a",
+      "name": "Am I Active?1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/del/worker_slot_{{ $('Trigger From Ford').first().json.slot_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        480
+      ],
+      "id": "b4aeb848-23ce-4562-b9af-e255412f496e",
+      "name": "Delete Lock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "144b7ef2-350e-45a2-8a47-16a30f21a227",
+              "leftValue": "={{ $('Format Response').item.json.phoneNumber }}",
+              "rightValue": "=+44 7xxx xxxxxx",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "d0d5c3d3-32c5-4e12-a289-2249b2f26765",
+              "leftValue": "={{ $('Format Response').item.json.phoneNumber }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        -128
+      ],
+      "id": "a5330c0c-d8ff-4d29-8124-86d13cb55f93",
+      "name": "Need to Sent sms ?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Parse the new job data popped from Redis\nconst redisResult = $input.item.json.result;\nconst newJobData = JSON.parse(redisResult);\n\n// 2. Retrieve the persistent infrastructure data (Slot ID) \n// form the very beginning of this workflow execution (P1's data)\nconst originalContext = $('Trigger From Ford').first().json;\n\nreturn {\n  json: {\n    // Pass the raw result string so 01-Hagrid can parse it exactly as it expects\n    result: redisResult,\n    \n    // PERSIST THE SLOT ID: The slot doesn't change, just the worker\n    slot_id: originalContext.slot_id,\n\n    // GENERATE NEW TOKEN: In your system, token seems to equal submission_id.\n    // We must update this so the lock matches the new job.\n    worker_token: newJobData.submission_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        272
+      ],
+      "id": "d91e0199-2cd0-4c7e-962c-3223e5c9f068",
+      "name": "Prepare Next Job"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/set/worker_slot_{{ $json.slot_id }}/{{ $json.worker_token }}/EX/10800",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1744,
+        192
+      ],
+      "id": "4dfc1ac6-8c39-443d-9ddb-11b594f62a72",
+      "name": "Set New Lock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2080,
+        224
+      ],
+      "id": "4eb55c98-6f01-4a49-9ad3-fb9bb73eca9f",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "57FzHVmSsFQJNFz9",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/57FzHVmSsFQJNFz9",
+          "cachedResultName": "01-Hagrid-MTest"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2368,
+        240
+      ],
+      "id": "c21e3518-d4c0-4df1-9003-898f6e20f9d6",
+      "name": "Call '01-Hagrid-Test'",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/del/job_start_time:{{ $('Trigger From Ford').first().json.session_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        560
+      ],
+      "id": "05442244-4d0a-452b-8519-69caeea74eec",
+      "name": "Delete job",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 1. Get data from the Trigger (Source of Truth) and Format node\nconst triggerData = $('Trigger From Ford').first().json;\nconst formatData = $('Format Response').item.json;\n\n// 2. Split Name\nconst fullName = triggerData.customer_name || 'Valued Customer';\nconst nameParts = fullName.trim().split(' ');\nconst firstName = nameParts[0];\nconst lastName = nameParts.slice(1).join(' ') || '';\n\n// --- 3. CLEAN PHONE (THE FIX) ---\nlet rawPhone = formatData.phoneNumber || '';\n\n// A. Remove spaces and dashes\nlet phone = rawPhone.toString().replace(/[\\s-]/g, '');\n\n// B. Check for Placeholders (\"x\") or invalid numbers\n// If it contains 'x' (like +44 7xxx...) OR is too short to be real\nif (phone.toLowerCase().includes('x') || phone.length < 5) {\n    phone = \"\"; // Send empty string to Brevo (Brevo allows empty, but not duplicate x's)\n}\n// --------------------------------\n\n// 4. Output Data mapped to your EXACT Brevo Attributes\nreturn {\n  json: {\n    email: triggerData.email,\n    FIRSTNAME: firstName,\n    LASTNAME: lastName,\n    SMS: phone,\n    // Custom Attributes\n    PET_NAME: triggerData.petname,\n    PET_TYPE: triggerData.petKind,\n    PET_GENDER: triggerData.petGender,\n    PHONE_MODEL: triggerData.phoneModel\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        160
+      ],
+      "id": "68152295-8f44-45ac-9cf1-d325b378a314",
+      "name": "prepare contact data"
+    },
+    {
+      "parameters": {
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "={{ $json.email }}",
+        "upsertAttributes": {
+          "upsertAttributesValues": [
+            {
+              "fieldName": "FIRSTNAME",
+              "fieldValue": "={{ $json.FIRSTNAME }}"
+            },
+            {
+              "fieldName": "LASTNAME",
+              "fieldValue": "={{ $json.LASTNAME }}"
+            },
+            {
+              "fieldName": "SMS",
+              "fieldValue": "={{ $json.SMS }}"
+            },
+            {
+              "fieldName": "PET_NAME",
+              "fieldValue": "={{ $json.PET_NAME }}"
+            },
+            {
+              "fieldName": "PET_GENDER",
+              "fieldValue": "={{ $json.PET_GENDER }}"
+            },
+            {
+              "fieldName": "PHONE_MODEL",
+              "fieldValue": "={{ $json.PHONE_MODEL }}"
+            },
+            {
+              "fieldName": "PET_TYPE",
+              "fieldValue": "={{ $json.PET_TYPE }}"
+            }
+          ]
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        144,
+        560
+      ],
+      "id": "02d0fb42-c6fe-487d-a414-3e8a843146ed",
+      "name": "Upsert a contact",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "Delivery alert",
+        "options": {},
+        "embeds": {
+          "values": [
+            {
+              "description": "=Client : **{{ $('extracting handle1').item.json.customerName }}**\nClick the link to view page : {{ $json.page_url }}",
+              "color": "#CD3E1A",
+              "timestamp": "={{ $json.created_at }}",
+              "title": "=🎉 Page delivery alert ",
+              "url": "="
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -32
+      ],
+      "id": "eb929510-9aab-40fd-b028-e805010b0563",
+      "name": "Discord",
+      "webhookId": "672f6499-5d9f-4e10-9c15-fdb0e83d3474",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "xgichmKyuehtarny",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"={{ $json.email }}\",\n  \"attributes\": {\n    \"FIRSTNAME\": \"={{ $json.FIRSTNAME }}\",\n    \"LASTNAME\": \"={{ $json.LASTNAME }}\",\n    \"SMS\": \"={{ $json.SMS }}\",\n    \"PET_NAME\": \"={{ $json.PET_NAME }}\",\n    \"PET_GENDER\": \"={{ $json.PET_GENDER }}\",\n    \"PHONE_MODEL\": \"={{ $json.PHONE_MODEL }}\",\n    \"PET_TYPE\": \"={{ $json.PET_TYPE }}\",\n    \"PET_ARTWORK\": \"={{ $('Format Response').item.json.page_url }}\"\n  },\n  \"listIds\": [8],\n  \"updateEnabled\": true\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        32,
+        160
+      ],
+      "id": "bb9d57ef-4879-4418-8016-207bad229164",
+      "name": "upsert contact in brevo",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aFcAEYavGsDojoat",
+          "name": "Brevo api"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "CheckQueueForMore": {
+      "main": [
+        [
+          {
+            "node": "IfQueueHasJobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IfQueueHasJobs": {
+      "main": [
+        [
+          {
+            "node": "Prepare Next Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Verify Ownership1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gallery Page": {
+      "main": [
+        [
+          {
+            "node": "Validate Gallery Creation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "prepare contact data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Collections": {
+      "main": [
+        [
+          {
+            "node": "Debug Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {
+            "node": "Process Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Set Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Gallery Creation1": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Create Gallery Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracting handle1": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger From Ford": {
+      "main": [
+        [
+          {
+            "node": "extracting handle1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brevo": {
+      "main": [
+        [
+          {
+            "node": "Need to Sent sms ?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CheckQueueForMore",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "team message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send sms": {
+      "main": [
+        []
+      ]
+    },
+    "Verify Ownership1": {
+      "main": [
+        [
+          {
+            "node": "Am I Active?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Am I Active?1": {
+      "main": [
+        [
+          {
+            "node": "Delete Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need to Sent sms ?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "send sms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Next Job": {
+      "main": [
+        [
+          {
+            "node": "Set New Lock",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set New Lock": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Call '01-Hagrid-Test'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "team message": {
+      "main": [
+        [
+          {
+            "node": "Delete job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare contact data": {
+      "main": [
+        [
+          {
+            "node": "upsert contact in brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert a contact": {
+      "main": [
+        [],
+        []
+      ]
+    },
+    "upsert contact in brevo": {
+      "main": [
+        [
+          {
+            "node": "Brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "e3A2YjP2DNbrfl9C",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "Trigger From Ford": [
+      {
+        "json": {
+          "session_id": "693baf8797b994b45a0f07ee",
+          "customer_name": "Ameena K",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "petGender": "Male",
+          "phoneModel": "iPhone 16 Pro Max",
+          "phoneNumber": null,
+          "worker_token": "693baf8797b994b45a0f07ee",
+          "slot_id": "1"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "72e6795bebe8a2f892acda79a1d5dd6e",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "c65199cf7eb74602e74b2aff9d62bc8ba9ff88ca",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 161040,
+          "type": "upload",
+          "etag": "ccd6659d354bf6832f38b8f28cd64084",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt1",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "2a3c8e364d9240a7a4955769a7047894",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "c20ce8540bbb6bc769960fa85d90aff5e39ac85c",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 123696,
+          "type": "upload",
+          "etag": "231a1c01bfc5e64371008a3f8a5dc225",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt2",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "0a5e943ff69cc6b0d9039ace9a2738b7",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "61c1105ac8fd154ae070cbb61e6a1deaee483c29",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 169221,
+          "type": "upload",
+          "etag": "f0db21807fb50c7bba52a2e16b13e064",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt3",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "921f2c324a7ed6302e81e8e727739c4b",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "4d8a5582ff2522dde48088bfeec9cdcfddb8e194",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 164266,
+          "type": "upload",
+          "etag": "41c5156f0009a2a8f1acca5012128c5f",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt5",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "90138f335b079a76bb016e73d570fe35",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "f150aaaae6884a19fff366276ac885204e1c0355",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 157273,
+          "type": "upload",
+          "etag": "1261555638242e2c7b04fc560539ea3a",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt6",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "34f9d2d4c35a67cb1392f205bc276f18",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "8af5d55993aca7bb7353a810f1eee829e69f9749",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 136384,
+          "type": "upload",
+          "etag": "e7ae246eb361f4c4972e36dca1dc6c14",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 7,
+          "theme_name": "Game of Thrones",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt7",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "d61bd76c136448b1a401533478f660ec",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "9bd8fef56b31ce83596fa1e215c1f42fb9715d3d",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 162373,
+          "type": "upload",
+          "etag": "a620446ef5c3da2b870ab5f3fc6e6f71",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 8,
+          "theme_name": "Morning Coffee",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt8",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "c61e830fbae5ec4254ee7c85dafbd8c6",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "3d84394191017c3f51693a20d49c005e79f774b9",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 265596,
+          "type": "upload",
+          "etag": "3b12d933ceb14022559f501bdf2ce75a",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 9,
+          "theme_name": "Anime Style",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt9",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "1772b4f1000e6a74dd0fa016fe676b47",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "b900dfc51b71e5177dd0449557dcae88312d499f",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 185364,
+          "type": "upload",
+          "etag": "12980c1bea7f578e447b58819e28fcbc",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 10,
+          "theme_name": "The Viking",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt10",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt10",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "8ea29bc2e3baca6d9a01aeff8b4c7b0b",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "ce671261a44696bf21b0ed94c1f7b5146ffcd5ea",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 566833,
+          "type": "upload",
+          "etag": "89b5690ca5ab4acc02d0e3da0acf470c",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 11,
+          "theme_name": "Sherlock Bones",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt11",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt11",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "0ddb152a9f667fe53918b7fa9d23e3e8",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "80b3f1409e8adfe71f6b5c7aa31176b3a6069fa7",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 185127,
+          "type": "upload",
+          "etag": "6aea6bbdf500a5022012a5060eac2e36",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 12,
+          "theme_name": "Masterchef",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt12",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt12",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "9234c4852df16b9baa70f86e5fabff53",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "0ff24a160f558ae15fb20fb11993b922d1c4ee61",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 374735,
+          "type": "upload",
+          "etag": "a2dc9717630e2fbccecdd415508e2ae9",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 13,
+          "theme_name": "Pop Art",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt13",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt13",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "c531b958e0eb4c5116cdfcef38b36f6e",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "11636466a78929da35917db5373b0a922b404d9d",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 217164,
+          "type": "upload",
+          "etag": "b16c8021844e32e894b9957a14f6a2fb",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 14,
+          "theme_name": "Space Explorer Adventure",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt14",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt14",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "b9d2666091a31578aad795e142ada563",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "7af33c8f2719c019ee30e54e037bf36604a441ee",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 217907,
+          "type": "upload",
+          "etag": "74bbe8d2a6423dbbe4510a50dff48d7c",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 15,
+          "theme_name": "Tropical Beach Vacation",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt15",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt15",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "5cf1e73041d9b3b82d2589ab4449b744",
+          "public_id": "693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16",
+          "version": 1765519290,
+          "version_id": "2f10c6e15c85735a4cd15f708b39f8af",
+          "signature": "64ea0b246c2b7bec01fa1af3941a715213c5cfa5",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-12-12T06:01:30Z",
+          "tags": [],
+          "bytes": 203383,
+          "type": "upload",
+          "etag": "0082eddf8bb88c0b188eed11ead17b6f",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16.jpg",
+          "asset_folder": "693baf8797b994b45a0f07ee",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "693baf8797b994b45a0f07ee",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Renny",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 16,
+          "theme_name": "Snowy Christmas Wonderland",
+          "customFilename": "693baf8797b994b45a0f07ee_prompt16",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1765519290/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark2_rmmx8z.png/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/693baf8797b994b45a0f07ee/693baf8797b994b45a0f07ee_prompt16",
+          "phoneNumber": null,
+          "slot_id": "1",
+          "worker_token": "693baf8797b994b45a0f07ee"
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601936212,
+            "handle": "test-renny-spadaydeluxe-5a0f07ee",
+            "title": "Test Renny Spa Day Deluxe",
+            "updated_at": "2025-12-12T06:06:12+00:00",
+            "body_html": "<p>Custom Spa Day Deluxe artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:09+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601936212",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Spa Day Deluxe Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt1.jpg?v=1765519572"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601477460,
+            "handle": "test-renny-midnightsnack-5a0f07ee",
+            "title": "Test Renny Midnight Snack",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Midnight Snack artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601477460",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Midnight Snack Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt2.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601510228,
+            "handle": "test-renny-victorianportrait-5a0f07ee",
+            "title": "Test Renny Victorian Portrait",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Victorian Portrait artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601510228",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Victorian Portrait Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt3.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601739604,
+            "handle": "test-renny-corporatepet-5a0f07ee",
+            "title": "Test Renny Corporate Pet",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Corporate Pet artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601739604",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Corporate Pet Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt5.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601706836,
+            "handle": "test-renny-homeyoga-5a0f07ee",
+            "title": "Test Renny Home Yoga",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Home Yoga artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601706836",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Home Yoga Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt6.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601542996,
+            "handle": "test-renny-gameofthrones-5a0f07ee",
+            "title": "Test Renny Game of Thrones",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Game of Thrones artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601542996",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Game of Thrones Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt7.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601674068,
+            "handle": "test-renny-morningcoffee-5a0f07ee",
+            "title": "Test Renny Morning Coffee",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Morning Coffee artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601674068",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Morning Coffee Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt8.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601837908,
+            "handle": "test-renny-animestyle-5a0f07ee",
+            "title": "Test Renny Anime Style",
+            "updated_at": "2025-12-12T06:06:12+00:00",
+            "body_html": "<p>Custom Anime Style artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601837908",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Anime Style Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt9.jpg?v=1765519572"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601805140,
+            "handle": "test-renny-theviking-5a0f07ee",
+            "title": "Test Renny The Viking",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom The Viking artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601805140",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny The Viking Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt10.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601575764,
+            "handle": "test-renny-sherlockbones-5a0f07ee",
+            "title": "Test Renny Sherlock Bones",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Sherlock Bones artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601575764",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Sherlock Bones Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt11.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601641300,
+            "handle": "test-renny-masterchef-5a0f07ee",
+            "title": "Test Renny Masterchef",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Masterchef artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601641300",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Masterchef Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt12.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601870676,
+            "handle": "test-renny-popart-5a0f07ee",
+            "title": "Test Renny Pop Art",
+            "updated_at": "2025-12-12T06:06:12+00:00",
+            "body_html": "<p>Custom Pop Art artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601870676",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Pop Art Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt13.jpg?v=1765519572"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601608532,
+            "handle": "test-renny-spaceexploreradventure-5a0f07ee",
+            "title": "Test Renny Space Explorer Adventure",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Space Explorer Adventure artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601608532",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Space Explorer Adventure Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt14.jpg?v=1765519571"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601903444,
+            "handle": "test-renny-tropicalbeachvacation-5a0f07ee",
+            "title": "Test Renny Tropical Beach Vacation",
+            "updated_at": "2025-12-12T06:06:12+00:00",
+            "body_html": "<p>Custom Tropical Beach Vacation artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601903444",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Tropical Beach Vacation Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt15.jpg?v=1765519572"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 696601772372,
+            "handle": "test-renny-snowychristmaswonderland-5a0f07ee",
+            "title": "Test Renny Snowy Christmas Wonderland",
+            "updated_at": "2025-12-12T06:06:11+00:00",
+            "body_html": "<p>Custom Snowy Christmas Wonderland artwork featuring Test Renny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-12-12T06:06:10+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/696601772372",
+            "image": {
+              "created_at": "2025-12-12T06:06:10+00:00",
+              "alt": "Test Renny Snowy Christmas Wonderland Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/693baf8797b994b45a0f07ee_prompt16.jpg?v=1765519571"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "a715612c-0435-4ede-9f2b-4188d8c519ef",
+  "activeVersionId": null,
+  "versionCounter": 25,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-24T16:27:43.260Z",
+      "createdAt": "2025-11-24T16:27:43.260Z",
+      "role": "workflow:owner",
+      "workflowId": "53JGVVCvQQ1bo3sV",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T05:58:40.812Z",
+      "createdAt": "2025-12-18T05:58:40.812Z",
+      "id": "kb8uOx6YBcqD3LbX",
+      "name": "production-test"
+    }
+  ],
+  "activeVersion": null
+}
