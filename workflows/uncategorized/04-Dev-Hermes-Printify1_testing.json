@@ -1,0 +1,1508 @@
+{
+  "updatedAt": "2025-08-08T08:46:24.355Z",
+  "createdAt": "2025-08-08T08:41:55.485Z",
+  "id": "IfVbz4UwE2p6gkyo",
+  "name": "04-Dev-Hermes-Printify1_testing",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        80
+      ],
+      "id": "89ab9dd1-1e8d-4625-b79f-a56735027bdc",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}'\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "2b67154a-869c-4768-a470-1a6cb4aeba6b",
+      "name": "Create Gallery Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1568,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}.myshopify.com/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    page_url: pageUrl,\n    admin_url: `https://${config.shopify_store_url}/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+      },
+      "id": "145a20ae-7c65-408c-9ccc-86ea79b7f6b0",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'myfurryprints-' + Date.now().toString().slice(-4),\n  petname: config.petname // <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+      },
+      "id": "13559891-7a04-4562-8a43-6f36eca434df",
+      "name": "Process Collections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendTemplate",
+        "templateId": 1,
+        "receipients": "={{ $('Set Configuration').item.json.email + ', support@myfurryprints.com'}}",
+        "additionalFields": {
+          "templateParameters": {
+            "parameterValues": {
+              "parameters": "=registrationUrl={{ $json.page_url }}"
+            }
+          }
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        2144,
+        80
+      ],
+      "id": "785c61cb-c2d3-4183-9616-f4c23cc6bb6b",
+      "name": "Brevo",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "shopify_store_url",
+              "stringValue": "j4zewh-kg.myshopify.com"
+            },
+            {
+              "name": "collection_handles",
+              "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+            },
+            {
+              "name": "email",
+              "stringValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "125a7b2a-5f28-4229-84dc-f1cd5a54d57e",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        912,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 300,
+        "width": 2300,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fad38e5f-f10f-44ff-9105-fdf58d823f8c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        80
+      ],
+      "id": "974f8326-62e2-4ebc-9931-7dce5974435b",
+      "name": "Consolidate Gallery Data1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+              "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+              "rightValue": 201,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "046ab598-faff-4e2c-9941-6838ecbd90b9",
+      "name": "Validate Gallery Creation1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+      },
+      "id": "890dc2b7-ca79-4883-a824-4d2327091a25",
+      "name": "Debug Gallery Data1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        80
+      ],
+      "id": "78988ad9-31e7-4dd9-9303-c64dd166905c",
+      "name": "extracting handle1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/del/processing_lock",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        288
+      ],
+      "id": "01475f48-c2ef-49fc-91fa-8606a303828e",
+      "name": "ClearProcessingLock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/llen/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2720,
+        288
+      ],
+      "id": "532d1d1d-7d94-40d5-9c26-b1f219e85ee3",
+      "name": "CheckQueueForMore",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2912,
+        288
+      ],
+      "id": "7e51be65-805c-4a40-a7ec-2e6339b615f5",
+      "name": "IfQueueHasJobs"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "f3yXZ3uhMFr7tURb",
+          "mode": "list",
+          "cachedResultName": "01-Dev-Hagrid-Printify_testing"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3152,
+        288
+      ],
+      "id": "529a6219-80ff-42cc-b95c-1dce855b44be",
+      "name": "Execute Workflow"
+    },
+    {
+      "parameters": {
+        "content": "Clears the processing lock, checks for jobs in the queue.\nIf job exists, returns to 01Hagrid and next submission gets executed",
+        "height": 120
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2768,
+        464
+      ],
+      "id": "eb28aee1-50f0-4401-9977-2a21c09653c4",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "extracting handle1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gallery Page": {
+      "main": [
+        [
+          {
+            "node": "Validate Gallery Creation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Collections": {
+      "main": [
+        [
+          {
+            "node": "Debug Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brevo": {
+      "main": [
+        [
+          {
+            "node": "ClearProcessingLock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {
+            "node": "Process Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Set Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Gallery Creation1": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Create Gallery Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracting handle1": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClearProcessingLock": {
+      "main": [
+        [
+          {
+            "node": "CheckQueueForMore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckQueueForMore": {
+      "main": [
+        [
+          {
+            "node": "IfQueueHasJobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IfQueueHasJobs": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "session_id": "68871021ab7a8522600f579c",
+          "customer_name": "Daniel Suresh",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "petGender": "Male"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "3ff2eab6f82e5a45bdbcd4719113bee5",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "834fda8fee96e503a9e666bba20dc4eedc87fc2b",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 195367,
+          "type": "upload",
+          "etag": "33d0e17873f28f37d49876abf3fc8528",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "68871021ab7a8522600f579c_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt1"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "72f57a1820c72ddeb7527e9a16c49b82",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "92e40326541ee003ea5e13ff542fb65f34437f77",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 182845,
+          "type": "upload",
+          "etag": "910e72ed49a2be309eb584ba6b438e7c",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "68871021ab7a8522600f579c_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt2"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "e17cb8eaed6f4f75fd16a7f49dd05d26",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "d8e0ca8051feee9bb7e3a9a475086438c1f96a76",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 236391,
+          "type": "upload",
+          "etag": "a2acf342b486d5fb87870fd4abedbf77",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "68871021ab7a8522600f579c_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt3"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "fbcae98561e9a8270e9fb8d989a9e408",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "a5e711cdcd84d8a04e6712139175f6e196c0e2f3",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 258742,
+          "type": "upload",
+          "etag": "3194345b9014276184cf03567d5a1ae8",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 4,
+          "theme_name": "Harry Petter",
+          "customFilename": "68871021ab7a8522600f579c_prompt4",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt4"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "c1964c161023454f16673b99610833c0",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "be7427ba9eb395cd32e6116b5ac14786e3c00a54",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 226364,
+          "type": "upload",
+          "etag": "4ba1b71b0428f42781cd6fce040c1d13",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "68871021ab7a8522600f579c_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt5"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "348e54dd659339f6a6ecbaba03599ed6",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "fc61aa855beb4ebdc264f2979ac9fa818ed7b09d",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 192326,
+          "type": "upload",
+          "etag": "35f244fe17b8c805f34e4c58ee82133c",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "68871021ab7a8522600f579c_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt6"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "614ae310fde751546f7926cc00fb247c",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "b15561f04a92e32ea5c56ec07cee7a3eb49c896b",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 148713,
+          "type": "upload",
+          "etag": "5cf0b34961aa1dfdfd7e3cb920ae3aa3",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 7,
+          "theme_name": "Game of Thrones",
+          "customFilename": "68871021ab7a8522600f579c_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt7"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "3437b80cf228ed1cae82179cd318dbbc",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "c0f840b55ed01d4309659d7fbb0dbfd3b728a248",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 237607,
+          "type": "upload",
+          "etag": "fe0f53054a623b87dfb6285144527812",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 8,
+          "theme_name": "Morning Coffee",
+          "customFilename": "68871021ab7a8522600f579c_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt8"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "0a45e04c7d442098009ed3880a724e9a",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "223151eb25700aba983c39338eaf31c866a08b18",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 435925,
+          "type": "upload",
+          "etag": "eb3583aa621a27a49391ca44a0f13b4a",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 9,
+          "theme_name": "Anime Style",
+          "customFilename": "68871021ab7a8522600f579c_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt9"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "a827d7a67a90730e2552ff4424a2547d",
+          "public_id": "68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10",
+          "version": 1753682090,
+          "version_id": "e66ddfd917cf9268a34e2908ff4a3eae",
+          "signature": "8d22659acd3fc3b68add8f6b5680d69fb55592c1",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-28T05:54:50Z",
+          "tags": [],
+          "bytes": 361690,
+          "type": "upload",
+          "etag": "8eb93bcd9ff61dc096d6ea9f6f3e30f6",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10.jpg",
+          "asset_folder": "68871021ab7a8522600f579c",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68871021ab7a8522600f579c",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Baxter",
+          "petKind": "Dog",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 10,
+          "theme_name": "The Viking",
+          "customFilename": "68871021ab7a8522600f579c_prompt10",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753682090/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68871021ab7a8522600f579c/68871021ab7a8522600f579c_prompt10"
+        }
+      }
+    ]
+  },
+  "versionId": "26380f95-92de-4160-83c3-43028a9aab89",
+  "activeVersionId": "26380f95-92de-4160-83c3-43028a9aab89",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-08-08T08:41:55.485Z",
+      "createdAt": "2025-08-08T08:41:55.485Z",
+      "role": "workflow:owner",
+      "workflowId": "IfVbz4UwE2p6gkyo",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-07-16T05:47:05.580Z",
+      "createdAt": "2025-07-16T05:47:05.580Z",
+      "id": "hn6s8vvm70Sc55aF",
+      "name": "testing"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "26380f95-92de-4160-83c3-43028a9aab89",
+    "workflowId": "IfVbz4UwE2p6gkyo",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          112,
+          80
+        ],
+        "id": "89ab9dd1-1e8d-4625-b79f-a56735027bdc",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}'\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "2b67154a-869c-4768-a470-1a6cb4aeba6b",
+        "name": "Create Gallery Page",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.1,
+        "position": [
+          1568,
+          80
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}.myshopify.com/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    page_url: pageUrl,\n    admin_url: `https://${config.shopify_store_url}/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+        },
+        "id": "145a20ae-7c65-408c-9ccc-86ea79b7f6b0",
+        "name": "Format Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1968,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'myfurryprints-' + Date.now().toString().slice(-4),\n  petname: config.petname // <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+        },
+        "id": "13559891-7a04-4562-8a43-6f36eca434df",
+        "name": "Process Collections",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1120,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "sendTemplate",
+          "templateId": 1,
+          "receipients": "={{ $('Set Configuration').item.json.email + ', support@myfurryprints.com'}}",
+          "additionalFields": {
+            "templateParameters": {
+              "parameterValues": {
+                "parameters": "=registrationUrl={{ $json.page_url }}"
+              }
+            }
+          },
+          "requestOptions": {}
+        },
+        "type": "n8n-nodes-base.sendInBlue",
+        "typeVersion": 1,
+        "position": [
+          2144,
+          80
+        ],
+        "id": "785c61cb-c2d3-4183-9616-f4c23cc6bb6b",
+        "name": "Brevo",
+        "credentials": {
+          "sendInBlueApi": {
+            "id": "iKQewRm9lysjCraU",
+            "name": "Brevo account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "fields": {
+            "values": [
+              {
+                "name": "shopify_store_url",
+                "stringValue": "j4zewh-kg.myshopify.com"
+              },
+              {
+                "name": "collection_handles",
+                "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+              },
+              {
+                "name": "email",
+                "stringValue": "={{ $json.email }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "125a7b2a-5f28-4229-84dc-f1cd5a54d57e",
+        "name": "Set Configuration",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.2,
+        "position": [
+          912,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "content": "",
+          "height": 300,
+          "width": 2300,
+          "color": 6
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "fad38e5f-f10f-44ff-9105-fdf58d823f8c",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          80
+        ],
+        "id": "974f8326-62e2-4ebc-9931-7dce5974435b",
+        "name": "Consolidate Gallery Data1"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+                "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+                "rightValue": 201,
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "046ab598-faff-4e2c-9941-6838ecbd90b9",
+        "name": "Validate Gallery Creation1",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          1744,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+        },
+        "id": "890dc2b7-ca79-4883-a824-4d2327091a25",
+        "name": "Debug Gallery Data1",
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          1360,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          368,
+          80
+        ],
+        "id": "78988ad9-31e7-4dd9-9303-c64dd166905c",
+        "name": "extracting handle1"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/del/processing_lock",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2528,
+          288
+        ],
+        "id": "01475f48-c2ef-49fc-91fa-8606a303828e",
+        "name": "ClearProcessingLock",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/llen/myfurryprints_queue",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2720,
+          288
+        ],
+        "id": "532d1d1d-7d94-40d5-9c26-b1f219e85ee3",
+        "name": "CheckQueueForMore",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+                "leftValue": "={{ $json.result }}",
+                "rightValue": 0,
+                "operator": {
+                  "type": "number",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2912,
+          288
+        ],
+        "id": "7e51be65-805c-4a40-a7ec-2e6339b615f5",
+        "name": "IfQueueHasJobs"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "f3yXZ3uhMFr7tURb",
+            "mode": "list",
+            "cachedResultName": "01-Dev-Hagrid-Printify_testing"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          3152,
+          288
+        ],
+        "id": "529a6219-80ff-42cc-b95c-1dce855b44be",
+        "name": "Execute Workflow"
+      },
+      {
+        "parameters": {
+          "content": "Clears the processing lock, checks for jobs in the queue.\nIf job exists, returns to 01Hagrid and next submission gets executed",
+          "height": 120
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          2768,
+          464
+        ],
+        "id": "eb28aee1-50f0-4401-9977-2a21c09653c4",
+        "name": "Sticky Note1"
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "extracting handle1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Gallery Page": {
+        "main": [
+          [
+            {
+              "node": "Validate Gallery Creation1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Response": {
+        "main": [
+          [
+            {
+              "node": "Brevo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Collections": {
+        "main": [
+          [
+            {
+              "node": "Debug Gallery Data1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Brevo": {
+        "main": [
+          [
+            {
+              "node": "ClearProcessingLock",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Configuration": {
+        "main": [
+          [
+            {
+              "node": "Process Collections",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Consolidate Gallery Data1": {
+        "main": [
+          [
+            {
+              "node": "Set Configuration",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Gallery Creation1": {
+        "main": [
+          [
+            {
+              "node": "Format Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Debug Gallery Data1": {
+        "main": [
+          [
+            {
+              "node": "Create Gallery Page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "extracting handle1": {
+        "main": [
+          [
+            {
+              "node": "Consolidate Gallery Data1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ClearProcessingLock": {
+        "main": [
+          [
+            {
+              "node": "CheckQueueForMore",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CheckQueueForMore": {
+        "main": [
+          [
+            {
+              "node": "IfQueueHasJobs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IfQueueHasJobs": {
+        "main": [
+          [
+            {
+              "node": "Execute Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-08-08T08:46:24.355Z",
+        "id": 79,
+        "workflowId": "IfVbz4UwE2p6gkyo",
+        "versionId": "26380f95-92de-4160-83c3-43028a9aab89",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
