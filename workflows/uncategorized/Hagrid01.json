@@ -1,0 +1,670 @@
+{
+  "updatedAt": "2025-07-01T05:19:26.118Z",
+  "createdAt": "2025-06-18T07:11:43.212Z",
+  "id": "AkHgXJy4K2zLgFlV",
+  "name": "Hagrid01",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/lpush/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"submission_id\": \"{{ $json.body.submission_id }}\",\n  \"customer_data\": {{ JSON.stringify($json.body.data) }},\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        280
+      ],
+      "id": "15d37972-ab12-40f7-a026-ecf4a44c0e78",
+      "name": "AddToQueue",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload_images_dev",
+        "options": {
+          "allowedOrigins": "*",
+          "binaryPropertyName": "images"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        20,
+        280
+      ],
+      "id": "41bdf406-3b81-4de0-b762-03efcfbb83c8",
+      "name": "Webhook",
+      "webhookId": "cba602ef-b831-4f88-ae22-a42f14701694"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/get/processing_lock",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        280
+      ],
+      "id": "048c25e5-c27d-4897-bee8-02da6da2d158",
+      "name": "CheckProcessingLock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c61f1c28-46d7-4c55-b2a2-cea646a58c02",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "null",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        980,
+        280
+      ],
+      "id": "bb8d1b25-c383-46ce-aedd-25132676b57b",
+      "name": "If Not Processing"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/setex/processing_lock/3700/processing",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1220,
+        280
+      ],
+      "id": "938ac64a-735b-4f0e-aa54-beb8cf03da77",
+      "name": "SetProcessingLock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "oMtBfSqicW9z7nF7",
+          "mode": "list",
+          "cachedResultName": "Picasso02"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1660,
+        280
+      ],
+      "id": "c1ae146a-6e21-4e7f-ae67-129e20d9583c",
+      "name": "Execute Workflow1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integral-squirrel-52866.upstash.io/rpop/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        280
+      ],
+      "id": "047f4316-6216-4abd-be5b-d237153ce505",
+      "name": "PopJobAndProcess",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        500,
+        480
+      ],
+      "id": "763f4557-1ae4-4887-afd5-c3e80dea46ce",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "content": "WORKFLOW 1\n\n\nThis workflow handles incoming data from users and adds them to a queue in redis for processing. It makes sure that only one job is processed at a time by checking a processing lock in Redis (via Upstash). When ready, it pops a job from the queue, locks the processing, and triggers another workflow to handle the actual job. It helps manage jobs smoothly without overloading the system.",
+        "height": 200,
+        "width": 640
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e1d7f29d-0d99-4262-ad31-bf80e60296a2",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "AddToQueue": {
+      "main": [
+        [
+          {
+            "node": "CheckProcessingLock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AddToQueue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckProcessingLock": {
+      "main": [
+        [
+          {
+            "node": "If Not Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Processing": {
+      "main": [
+        [
+          {
+            "node": "SetProcessingLock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetProcessingLock": {
+      "main": [
+        [
+          {
+            "node": "PopJobAndProcess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PopJobAndProcess": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "CheckProcessingLock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "a7b25df0-354e-48e1-b01d-226b269326a9",
+  "activeVersionId": "a7b25df0-354e-48e1-b01d-226b269326a9",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2025-06-18T07:11:43.212Z",
+      "createdAt": "2025-06-18T07:11:43.212Z",
+      "role": "workflow:owner",
+      "workflowId": "AkHgXJy4K2zLgFlV",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "a7b25df0-354e-48e1-b01d-226b269326a9",
+    "workflowId": "AkHgXJy4K2zLgFlV",
+    "nodes": [
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/lpush/myfurryprints_queue",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"submission_id\": \"{{ $json.body.submission_id }}\",\n  \"customer_data\": {{ JSON.stringify($json.body.data) }},\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          360,
+          280
+        ],
+        "id": "15d37972-ab12-40f7-a026-ecf4a44c0e78",
+        "name": "AddToQueue",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "upload_images_dev",
+          "options": {
+            "allowedOrigins": "*",
+            "binaryPropertyName": "images"
+          }
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          20,
+          280
+        ],
+        "id": "41bdf406-3b81-4de0-b762-03efcfbb83c8",
+        "name": "Webhook",
+        "webhookId": "cba602ef-b831-4f88-ae22-a42f14701694"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/get/processing_lock",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          780,
+          280
+        ],
+        "id": "048c25e5-c27d-4897-bee8-02da6da2d158",
+        "name": "CheckProcessingLock",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c61f1c28-46d7-4c55-b2a2-cea646a58c02",
+                "leftValue": "={{ $json.result }}",
+                "rightValue": "null",
+                "operator": {
+                  "type": "string",
+                  "operation": "empty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          980,
+          280
+        ],
+        "id": "bb8d1b25-c383-46ce-aedd-25132676b57b",
+        "name": "If Not Processing"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/setex/processing_lock/3700/processing",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1220,
+          280
+        ],
+        "id": "938ac64a-735b-4f0e-aa54-beb8cf03da77",
+        "name": "SetProcessingLock",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "oMtBfSqicW9z7nF7",
+            "mode": "list",
+            "cachedResultName": "Picasso02"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          1660,
+          280
+        ],
+        "id": "c1ae146a-6e21-4e7f-ae67-129e20d9583c",
+        "name": "Execute Workflow1"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://integral-squirrel-52866.upstash.io/rpop/myfurryprints_queue",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1440,
+          280
+        ],
+        "id": "047f4316-6216-4abd-be5b-d237153ce505",
+        "name": "PopJobAndProcess",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "OU4p8zTKeY9k8OYC",
+            "name": "Upstash_new"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          500,
+          480
+        ],
+        "id": "763f4557-1ae4-4887-afd5-c3e80dea46ce",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "content": "WORKFLOW 1\n\n\nThis workflow handles incoming data from users and adds them to a queue in redis for processing. It makes sure that only one job is processed at a time by checking a processing lock in Redis (via Upstash). When ready, it pops a job from the queue, locks the processing, and triggers another workflow to handle the actual job. It helps manage jobs smoothly without overloading the system.",
+          "height": 200,
+          "width": 640
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "e1d7f29d-0d99-4262-ad31-bf80e60296a2",
+        "name": "Sticky Note"
+      }
+    ],
+    "connections": {
+      "AddToQueue": {
+        "main": [
+          [
+            {
+              "node": "CheckProcessingLock",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "AddToQueue",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CheckProcessingLock": {
+        "main": [
+          [
+            {
+              "node": "If Not Processing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If Not Processing": {
+        "main": [
+          [
+            {
+              "node": "SetProcessingLock",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SetProcessingLock": {
+        "main": [
+          [
+            {
+              "node": "PopJobAndProcess",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PopJobAndProcess": {
+        "main": [
+          [
+            {
+              "node": "Execute Workflow1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "CheckProcessingLock",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-07-01T05:19:26.118Z",
+        "id": 42,
+        "workflowId": "AkHgXJy4K2zLgFlV",
+        "versionId": "a7b25df0-354e-48e1-b01d-226b269326a9",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
