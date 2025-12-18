@@ -1,0 +1,1631 @@
+{
+  "updatedAt": "2025-09-09T07:48:28.821Z",
+  "createdAt": "2025-07-19T12:38:23.105Z",
+  "id": "6WO4j4MWQyBnjebY",
+  "name": "PrintifyTest",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "13285a55-9b9e-4d08-a05c-59665a3bf476",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2416,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "bbc41598-b884-4bae-ae1a-7c88cdd95bf5",
+      "name": "Set Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        -2208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.printify.com/v1/shops.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "e0a50fa7-cc9d-40fd-93ee-edbf833e0dfd",
+      "name": "Get Printify Shops",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2000,
+        304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.printify.com/v1/catalog/blueprints.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "b7a52352-ce87-4927-bd21-38795dde8def",
+      "name": "Get Blueprints",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1568,
+        768
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.id }}/print_providers.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2000
+            }
+          }
+        }
+      },
+      "id": "44c7111c-3c84-48ed-9ac7-76c4acac94ec",
+      "name": "Get Print Providers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1296,
+        768
+      ],
+      "executeOnce": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $('Get Blueprints').item.json.result.find(bp => bp.type === 'T-SHIRT').id }}/print_providers/{{ $('Get Print Providers').item.json.result[0].id }}/variants.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "0d74f89b-7290-4df1-ab7e-03031eff8218",
+      "name": "Get Variants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1024,
+        672
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printify.com/v1/uploads/images.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_name\": \"{{ $('Set Variables').item.json.image_filename }}\",\n  \"url\": \"{{ $('Set Variables').item.json.image_url }}\"\n}",
+        "options": {}
+      },
+      "id": "4ec414d5-5324-44a7-a382-cb3e6574aa38",
+      "name": "Upload Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -800,
+        672
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fc40e300-0772-4345-bb90-048856b1ddd0",
+      "name": "Check Image Upload",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        672
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/{{ $('Set Variables').item.json.shop_id }}/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $('Set Variables').item.json.product_title }}\",\n  \"description\": \"{{ $('Set Variables').item.json.product_description }}\",\n  \"blueprint_id\": {{ $('Get Blueprints').item.json.result.find(bp => bp.type === 'T-SHIRT').id }},\n  \"print_provider_id\": {{ $('Get Print Providers').item.json.result[0].id }},\n  \"variants\": [\n    {\n      \"id\": {{ $('Get Variants').item.json.result.find(v => v.title.includes('Black') && v.title.includes('M')).id }},\n      \"price\": {{ $('Set Variables').item.json.product_price }},\n      \"is_enabled\": true\n    }\n  ],\n  \"print_areas\": [\n    {\n      \"variant_ids\": [{{ $('Get Variants').item.json.result.find(v => v.title.includes('Black') && v.title.includes('M')).id }}],\n      \"placeholders\": [\n        {\n          \"position\": \"front\",\n          \"images\": [\n            {\n              \"id\": \"{{ $('Upload Image').item.json.id }}\",\n              \"x\": 0.5,\n              \"y\": 0.5,\n              \"scale\": 1,\n              \"angle\": 0\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "62463ed8-fcfc-43fe-8273-99f87cb617a9",
+      "name": "Create Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        224,
+        112
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "740db5be-c363-4410-9773-05a3210e55ce",
+      "name": "Check Product Creation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/{{ $('Set Variables').item.json.shop_id }}/products/{{ $('Create Product').item.json.id }}/publish.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": true,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+        "options": {}
+      },
+      "id": "f8bb8a97-a17e-452d-83d3-e203baa10008",
+      "name": "Publish to Shopify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        672,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/shops/21658609/products/687b3a2ed857375c120bf72b.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1376,
+        304
+      ],
+      "id": "058221f3-4c2f-44c7-9cab-c88e6246e9ae",
+      "name": "Get_Products",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ZwQuXy3mFoa7bh3H",
+          "name": "cloudinaryFurryPrints"
+        },
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const products = $input.first().json.data;\nconst output = products.map(product => ({\n  id: product.id,\n  title: product.title,\n  blueprint_id: product.blueprint_id,\n  variants: product.variants.filter(v => v.is_enabled)\n}));\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        912
+      ],
+      "id": "277c7c26-f556-4b27-a5a2-c3ffc3646e62",
+      "name": "Parse_Important_Data"
+    },
+    {
+      "parameters": {
+        "url": "https://api.printify.com/v1/shops.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "76215bed-af8d-4c22-a871-0d6f6875ad9f",
+      "name": "Printify - Get Shops",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -304,
+        -1248
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YxIKMl61qSMtLh2X",
+          "name": "upStash-redis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/shops/{{ $json.id }}/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "b915f553-f930-4d66-bcde-195c5ad63e83",
+      "name": "Printify - Get Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -96,
+        -1248
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YxIKMl61qSMtLh2X",
+          "name": "upStash-redis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "69731a59-a9bb-4c2d-bd8e-e837afd25b58",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [
+        112,
+        -1248
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "dac68264-1c84-4385-9565-f7df33ba732c",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        304,
+        -1248
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "id",
+        "include": "selectedOtherFields",
+        "fieldsToInclude": "title, description",
+        "options": {}
+      },
+      "id": "d9012aa5-bb12-428d-ac2b-d4c7c03c1ff3",
+      "name": "Split - id, title, desc",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [
+        512,
+        -1248
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "32b17951-45a0-4796-9fc4-9e10ec5c69ae",
+      "name": "Calculator",
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "position": [
+        2000,
+        -1056
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "e8d2a139-e27c-483b-b32c-278809ce1fec",
+      "name": "Wikipedia",
+      "type": "@n8n/n8n-nodes-langchain.toolWikipedia",
+      "position": [
+        1888,
+        -1056
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.printify.com/v1/shops/{{ $json.id }}/products/{{ $('Google Sheets Trigger').item.json.product_id }}.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=title",
+              "value": "={{ $('Google Sheets Trigger').item.json.product_title }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $('Google Sheets Trigger').item.json.product_desc }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "66c89def-e642-4d08-b62f-fb3a528794bb",
+      "name": "Printify - Update Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1840,
+        -640
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "887815dd-21d5-41d7-b429-5f4361cf93b3",
+              "name": "brand_name",
+              "type": "string",
+              "value": "AlexK1919"
+            },
+            {
+              "id": "cbaa3dc0-825c-44e4-8a27-061f49daf249",
+              "name": "brand_tone",
+              "type": "string",
+              "value": "informal, instructional, trustoworthy"
+            },
+            {
+              "id": "0bd1358e-4586-407e-848e-8257923ed1b8",
+              "name": "custom_instructions",
+              "type": "string",
+              "value": "re-write for the coming Christmas season"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dbb3e3e8-4279-42e1-9e62-a7a016ff254f",
+      "name": "Brand Guidelines + Custom Instructions",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -656,
+        -1248
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "content": "# ![Printify](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTb2gV-cjThU_5xJRxtjDx7Uh9xXCN5Uo1GGA&s)\nYou can swap out the API calls to similar services like Printful, Vistaprint, etc.",
+        "height": 1064.4036342575048,
+        "width": 1020.0792140594992,
+        "color": 4
+      },
+      "id": "2c463686-31c9-40f9-bcf5-b2e204b5ed8d",
+      "name": "Sticky Note10",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -368,
+        -1488
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0/edit?usp=drivesdk",
+          "cachedResultName": "Printify - AlexK1919"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0/edit#gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "event": "rowUpdate",
+        "options": {
+          "columnsToWatch": [
+            "upload"
+          ]
+        }
+      },
+      "id": "1e42e736-0ea6-4575-a25d-fed879c10e62",
+      "name": "Google Sheets Trigger",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "position": [
+        1248,
+        -640
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "https://api.printify.com/v1/shops.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "e00f8c55-1669-4b24-939f-dad8ebc1cbe0",
+      "name": "Printify - Get Shops1",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1648,
+        -640
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0/edit?usp=drivesdk",
+          "cachedResultName": "Printify - AlexK1919"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Ql9TGAzZCSdSqrHvkZLcsBPoNMAjNpPVsELkumP2heM/edit#gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "value": {
+            "xid": "={{ Math.random().toString(36).substr(2, 12) }}",
+            "date": "={{ new Date().toISOString().split('T')[0] }}",
+            "time": "={{ new Date().toLocaleTimeString('en-US', { hour12: false }) }}",
+            "status": "Product Processing"
+          },
+          "schema": [
+            {
+              "id": "xid",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "xid",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "status",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "date",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "time",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_id",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "product_id",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "original_title",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "original_title",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_title",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "product_title",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "original_desc",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "original_desc",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_desc",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "product_desc",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_url",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "product_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "image_url",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "image_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_url",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "video_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "id": "f56153e2-32cd-44a0-9171-d0d6330193f1",
+      "name": "GS - Add Product Option",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1648,
+        -1248
+      ],
+      "typeVersion": 4.3
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0/edit?usp=drivesdk",
+          "cachedResultName": "Printify - AlexK1919"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1A6Phr6QwnMltm1_O6dVGAzmSPlOwuwp7RbCiLSvd9l0/edit#gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "value": {
+            "xid": "={{ $('GS - Add Product Option').item.json.xid }}",
+            "status": "Option added",
+            "keyword": "={{ $json.message.content.keyword }}",
+            "product_id": "={{ $('Split - id, title, desc').item.json.id }}",
+            "product_desc": "={{ $json.message.content.description }}",
+            "original_desc": "={{ $('Split - id, title, desc').item.json.description }}",
+            "product_title": "={{ $json.message.content.title }}",
+            "original_title": "={{ $('Split - id, title, desc').item.json.title }}"
+          },
+          "schema": [
+            {
+              "id": "xid",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "xid",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "status",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "upload",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "upload",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "date",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "time",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_id",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "product_id",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "keyword",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "original_title",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "original_title",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_title",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "product_title",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "original_desc",
+              "type": "string",
+              "display": true,
+              "removed": false,
+              "required": false,
+              "displayName": "original_desc",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_desc",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "product_desc",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_url",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "product_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "image_url",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "image_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video_url",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "displayName": "video_url",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "xid"
+          ]
+        },
+        "options": {}
+      },
+      "id": "041e1b85-6ee0-4c77-933e-96f33d87381f",
+      "name": "Update Product Option",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        2208,
+        -1248
+      ],
+      "typeVersion": 4.5
+    },
+    {
+      "parameters": {
+        "content": "# Set the Number of Options you'd like for the Title and Description",
+        "height": 1064.2140159143948,
+        "width": 454.85441546185024,
+        "color": 5
+      },
+      "id": "4e47cda7-b277-43e4-93e6-3384423500a1",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        704,
+        -1488
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "# Process Title and Description Options",
+        "height": 692.9832938116144,
+        "width": 1429.3228597821253,
+        "color": 4
+      },
+      "id": "cfcbde41-0597-4890-9d8c-f48190726181",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1184,
+        -1488
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "# Update your Brand Guidelines before running this workflow\nYou can also add custom instructions for the AI node.",
+        "height": 1067.57654641223,
+        "width": 410,
+        "color": 5
+      },
+      "id": "54a3fc67-abcb-48af-b1f7-a87c0f50285f",
+      "name": "Sticky Note11",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -800,
+        -1488
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "22bf0855-c742-4a72-99c9-5ed72a96969a",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.result }}",
+              "rightValue": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e6d20ef4-408b-4330-af13-4e027c6e2f20",
+      "name": "If1",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1440,
+        -1248
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e65d9a41-d8a0-40b8-82e6-7f4dd90f0aa7",
+              "name": "number_of_options",
+              "type": "string",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8e7577d4-be6b-4fe9-ae3e-5ebc555a6e42",
+      "name": "Number of Options",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        864,
+        -1248
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get the input data from the previous node\nconst inputData = $json[\"number_of_options\"]; // Fetch the \"number_of_options\" field\n\n// Convert the input to an integer\nconst initialValue = parseInt(inputData, 10);\n\n// Add 1 to retain the initial value and calculate the new value\nconst numberOfOptions = initialValue + 1;\nconst result = numberOfOptions - 1;\n\n// Return both values\nreturn {\n  number_of_options: numberOfOptions,\n  result,\n};\n"
+      },
+      "id": "2bb895d5-5436-4e1f-8906-5e05364fde5a",
+      "name": "Calculate Options",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1248,
+        -1248
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e47b9073-6b83-4444-9fde-3a70326fde1f",
+              "name": "number_of_options",
+              "type": "number",
+              "value": "={{ $('Calculate Options').item.json.result - 1 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "628d69e4-61e6-4427-9a4f-16594abc97c4",
+      "name": "Remember Options",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        2448,
+        -1104
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "content": "# Update Title and Description",
+        "height": 342.36777743061157,
+        "width": 1429.3228597821253,
+        "color": 4
+      },
+      "id": "d46d8b6a-7c93-4e83-9e95-a7acd5e1d4ee",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1184,
+        -768
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Write an engaging product title and description for this product: \nTitle: {{ $('Split - id, title, desc').item.json.title }}\nDescription: {{ $('Split - id, title, desc').item.json.description }}\n\nDefine a keyword for this product and use it to write the new Title and Description.\n\nThis product will be listed via Printify and posted across various sales channels such as Shopfiy, Etsy, Amazon, and TikTok Shops. This product will be promoted across social media channels."
+            },
+            {
+              "content": "Be witty. Humanize the content. No emojis.",
+              "role": "assistant"
+            },
+            {
+              "content": "You are an ecommerce master and excel at creating content for products.",
+              "role": "system"
+            },
+            {
+              "content": "=Brand Guidelines:\nBrand Name: {{ $('Brand Guidelines + Custom Instructions').item.json.brand_name }}\nBrand Tone: {{ $('Brand Guidelines + Custom Instructions').item.json.brand_tone }}",
+              "role": "assistant"
+            },
+            {
+              "content": "={{ $('Brand Guidelines + Custom Instructions').item.json.custom_instructions }}",
+              "role": "system"
+            },
+            {
+              "content": "Output:\nKeyword\nTitle\nDescription",
+              "role": "system"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "id": "0743335a-25d4-404b-99de-fb95665d90cf",
+      "name": "Generate Title and Desc",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        1840,
+        -1248
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d9c78fa8-c2ba-4c08-b5d2-848112caa1cc",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.upload }}",
+              "rightValue": "yes"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "43428eb5-fc8c-495a-af12-b33e17aa457c",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1440,
+        -640
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com//v1/catalog/blueprints/1159.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1776,
+        304
+      ],
+      "id": "1d0c6010-f892-4553-8a47-cf705fe8722f",
+      "name": "Get BluePrints",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/catalog/blueprints/1159/print_providers.json\n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1584,
+        304
+      ],
+      "id": "30826031-7dd8-462f-8244-65372ae2aaf2",
+      "name": "Get PrintPrivider",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printify.com/v1/shops/21658609/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"title\": \"Product\",\n    \"description\": \"Good product\",\n    \"safety_information\": \"GPSR information: John Doe, test@example.com, 123 Main St, Apt 1, New York, NY, 10001, US\n    Product information: Gildan, 5000, 2 year warranty in EU and UK as per Directive 1999/44/EC\n    Warnings, Hazzard: No warranty, US\n    Care instructions: Machine wash: warm (max 40C or 105F), Non-chlorine: bleach as needed, Tumble dry: medium, Do not iron, Do not dryclean\",\n    \"blueprint_id\": 384,\n    \"print_provider_id\": 1,\n    \"variants\": [\n          {\n              \"id\": 45740,\n              \"price\": 400,\n              \"is_enabled\": true\n          },\n          {\n              \"id\": 45742,\n              \"price\": 400,\n              \"is_enabled\": true\n          },\n          {\n              \"id\": 45744,\n              \"price\": 400,\n              \"is_enabled\": false\n          },\n          {\n              \"id\": 45746,\n              \"price\": 400,\n              \"is_enabled\": false\n          }\n      ],\n      \"print_areas\": [\n        {\n          \"variant_ids\": {{ $json.variants[0] }}{{ $json.variants[0].id }},\n          \"placeholders\": [\n            {\n              \"position\": \"front\",\n              \"images\": [\n                  {\n                    \"id\": \"5d15ca551163cde90d7b2203\", \n                    \"x\": 0.5, \n                    \"y\": 0.5, \n                    \"scale\": 1,\n                    \"angle\": 0,\n                    \"pattern\": {\n                      \"spacing_x\": 1,\n                      \"spacing_y\": 2,\n                      \"scale\": 3,\n                      \"offset\": 4\n                    }\n                  }\n              ]\n            }\n          ]\n        }\n      ]\n  }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1168,
+        304
+      ],
+      "id": "0f78b257-9fda-42c7-89a8-20ec32339e09",
+      "name": "Get_Products1",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ZwQuXy3mFoa7bh3H",
+          "name": "cloudinaryFurryPrints"
+        },
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Variables": {
+      "main": [
+        [
+          {
+            "node": "Get Printify Shops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Printify Shops": {
+      "main": [
+        [
+          {
+            "node": "Get BluePrints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Blueprints": {
+      "main": [
+        []
+      ]
+    },
+    "Get Print Providers": {
+      "main": [
+        [
+          {
+            "node": "Get Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Variants": {
+      "main": [
+        [
+          {
+            "node": "Upload Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image": {
+      "main": [
+        [
+          {
+            "node": "Check Image Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Image Upload": {
+      "main": [
+        [],
+        []
+      ]
+    },
+    "Create Product": {
+      "main": [
+        [
+          {
+            "node": "Check Product Creation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Product Creation": {
+      "main": [
+        [
+          {
+            "node": "Publish to Shopify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Publish to Shopify": {
+      "main": [
+        []
+      ]
+    },
+    "Get_Products": {
+      "main": [
+        [
+          {
+            "node": "Get_Products1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_Important_Data": {
+      "main": [
+        []
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Printify - Get Shops1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GS - Add Product Option",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia": {
+      "ai_tool": [
+        [
+          {
+            "node": "Generate Title and Desc",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "Generate Title and Desc",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Split - id, title, desc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remember Options": {
+      "main": [
+        [
+          {
+            "node": "Calculate Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Options": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Number of Options": {
+      "main": [
+        [
+          {
+            "node": "Calculate Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Printify - Get Shops": {
+      "main": [
+        [
+          {
+            "node": "Printify - Get Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Printify - Get Shops1": {
+      "main": [
+        [
+          {
+            "node": "Printify - Update Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Product Option": {
+      "main": [
+        [
+          {
+            "node": "Remember Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GS - Add Product Option": {
+      "main": [
+        [
+          {
+            "node": "Generate Title and Desc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Title and Desc": {
+      "main": [
+        [
+          {
+            "node": "Update Product Option",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Printify - Get Products": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split - id, title, desc": {
+      "main": [
+        [
+          {
+            "node": "Number of Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand Guidelines + Custom Instructions": {
+      "main": [
+        [
+          {
+            "node": "Printify - Get Shops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get BluePrints": {
+      "main": [
+        [
+          {
+            "node": "Get PrintPrivider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PrintPrivider": {
+      "main": [
+        [
+          {
+            "node": "Get_Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "5d1c7bc6-8b3a-45b5-bdf1-94fb55703b7b",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-07-19T12:38:23.105Z",
+      "createdAt": "2025-07-19T12:38:23.105Z",
+      "role": "workflow:owner",
+      "workflowId": "6WO4j4MWQyBnjebY",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
