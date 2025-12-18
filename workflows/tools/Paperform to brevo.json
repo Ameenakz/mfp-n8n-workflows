@@ -1,0 +1,496 @@
+{
+  "updatedAt": "2025-12-18T15:49:54.869Z",
+  "createdAt": "2025-12-03T06:17:42.101Z",
+  "id": "kl4FHYqZEsJ3DUs3",
+  "name": "Paperform to brevo",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        208,
+        112
+      ],
+      "id": "1430de18-4996-40b3-be5b-4e0643854ae1",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://api.paperform.co/v1/forms/rri1q8ik/submissions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "before_id",
+              "value": "692aac1a7e0f712f1f09621d"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        416,
+        112
+      ],
+      "id": "bbea3696-3e38-4a15-8f8d-9ecd1521d080",
+      "name": "getting submission data",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "r5fS0XbEni6WMsPy",
+          "name": "Paperform"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// DEFINE YOUR KEYS HERE (Based on your JSON)\nconst KEYS = {\n  FIRSTNAME: '84g9u',\n  LASTNAME:  'b6vtr',\n  EMAIL:     'aohp1',\n  PHONE:     '455ij',\n  PETNAME:   '1pl93',\n  PETKIND:   'tjhn',\n  GENDER:    '70foo',\n  MODEL:     '7850r'\n};\n\nconst results = [];\n// Get submissions from the HTTP node\nconst httpData = $input.first().json;\nconst submissions = httpData.results ? httpData.results.submissions : (httpData.submissions || []);\n\nfor (const sub of submissions) {\n  const data = sub.data;\n  \n  // --- 1. EXTRACT RAW VALUES ---\n  const email = data[KEYS.EMAIL];\n  const firstName = (data[KEYS.FIRSTNAME] || '').trim();\n  const lastName = (data[KEYS.LASTNAME] || '').trim();\n  const rawPetName = (data[KEYS.PETNAME] || '').trim();\n  const rawPhone = data[KEYS.PHONE] || '';\n\n  // Skip if no email\n  if (!email) continue;\n\n  // --- 2. FILTER OUT TEST DATA (The New Logic) ---\n  const lowerPet = rawPetName.toLowerCase();\n  const lowerFirst = firstName.toLowerCase();\n  const lowerLast = lastName.toLowerCase();\n  const fullName = `${lowerFirst} ${lowerLast}`;\n\n  // Filter A: Pet Name starts with \"test\" or \"tesproduction\"\n  if (lowerPet.startsWith('test') || lowerPet.startsWith('tesproduction')) {\n      continue; // Skip this submission\n  }\n\n  // Filter B: Block specific Team Names\n  // Checks: \"daniel suresh\", \"ameena k\", \"muhasin\" (handling typos like rshid)\n  if (email === 'danielsureshkm@gmail.com') continue;\n   if (email === 'iamdanielsuresh@gmail.com') continue;\n   if (email === 'ameena.k@gauger.in') continue;\n   if (email === 'muhasin23@gmil.com') continue;\n   if (email === 'muhasin@gauger.in') continue;\n   // Blocks Muhasin regardless of last name spelling\n\n  // --- 3. CLEAN & PREPARE DATA ---\n  \n  // Clean Phone (Remove spaces)\n  const phone = rawPhone.toString().replace(/\\s/g, '');\n\n  results.push({\n    json: {\n      email: email,\n      FIRSTNAME: firstName,\n      LASTNAME: lastName,\n      SMS: phone,\n      PET_NAME: rawPetName,\n      PET_TYPE: data[KEYS.PETKIND] || '',\n      PET_GENDER: data[KEYS.GENDER] || '',\n      PHONE_MODEL: data[KEYS.MODEL] || ''\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        1136
+      ],
+      "id": "976e721d-0626-4492-b0c0-ff79bcbb2652",
+      "name": "map&clean data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.email }}\",\n  \"attributes\": {\n    \"FIRSTNAME\": \"{{ $json.FIRSTNAME }}\",\n    \"LASTNAME\": \"{{ $json.LASTNAME }}\",\n    \"SMS\": \"{{ $json.SMS }}\",\n    \"PET_NAME\": \"{{ $json.PET_NAME }}\",\n    \"PET_TYPE\": \"{{ $json.PET_TYPE }}\",\n    \"PET_GENDER\": \"{{ $json.PET_GENDER }}\",\n    \"PHONE_MODEL\": \"{{ $json.PHONE_MODEL }}\"\n  },\n  \"listIds\": [8],\n  \"updateEnabled\": true\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1136,
+        1360
+      ],
+      "id": "9534b384-e22f-44e1-b946-93916cd7bd6b",
+      "name": "send contacts to brevo",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aFcAEYavGsDojoat",
+          "name": "Brevo api"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cutoff = new Date(\"2025-11-11T00:00:00Z\");\n\n// Step 1: get submissions array\nconst submissions = items[0].json.results.submissions;\n\n// Step 2: filter by date\nconst filtered = submissions.filter(sub => {\n  const created = new Date(sub.created_at_utc);\n  return created >= cutoff;\n});\n\n// Step 3: return as n8n items\nreturn filtered.map(sub => ({\n  json: sub\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -672,
+        928
+      ],
+      "id": "c18084f2-f79d-42b4-b301-bfc06bd635a8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract submissions array (supports both single submission and list)\nconst submissions = items[0].json.results?.submissions ?? items.map(i => i.json);\n\n// Map to clean output\nreturn submissions.map(sub => ({\n  json: {\n    pet_name: sub.data?.[\"1pl93\"] ?? null,\n    first_name: sub.data?.[\"84g9u\"] ?? null,\n    last_name: sub.data?.[\"b6vtr\"] ?? null,\n    email: sub.data?.[\"aohp1\"] ?? null,\n    phone_model: sub.data?.[\"7850r\"] ?? null,\n    created_at: sub.created_at_utc ?? sub.created_at ?? null,\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        1008
+      ],
+      "id": "b3f3618b-cb89-4c44-bc1b-bf854749f84e",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "results.submissions",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        624,
+        112
+      ],
+      "id": "4d66f633-039a-4e07-88a6-42c1a7d4c495",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c8424831-f282-44c5-8c97-e2d99b517ebb",
+              "leftValue": "={{ $json.attributes.PET_ARTWORK }}",
+              "rightValue": "2025-12-05T12:37:31",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1376,
+        256
+      ],
+      "id": "4bc96b5f-efff-463c-8cc8-8b1047f62a4b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.brevo.com/v3/contacts/{{ $json.data.aohp1 }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "offset",
+                    "value": "={{ $response.request.query.offset + 1000 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "receiveSpecificStatusCodes",
+              "statusCodesWhenComplete": "200",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1056,
+        112
+      ],
+      "id": "3c22c27e-8cc6-4c0b-8c9b-f25c3df96274",
+      "name": "fetch contacts",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aFcAEYavGsDojoat",
+          "name": "Brevo api"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "91b67375-4bd8-4403-a239-a2244ec7d39b",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        304
+      ],
+      "id": "4c6ceed9-4eb5-437a-8d37-2d9d1933ea0b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3feb7300-8256-44f2-9e76-e415dd313950",
+              "name": "email",
+              "value": "={{ $json.data.aohp1 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        928,
+        288
+      ],
+      "id": "30299d39-8856-4c78-b827-8c288d027009",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "data.aohp1",
+              "field2": "email"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.compareDatasets",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        576
+      ],
+      "id": "c72da3c1-8a18-4521-afe3-c0a8897cbbc9",
+      "name": "Compare Datasets"
+    },
+    {
+      "parameters": {
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "=laurenamygibson@me.com",
+        "upsertAttributes": {
+          "upsertAttributesValues": [
+            {
+              "fieldName": "PET_ARTWORK",
+              "fieldValue": "https://myfurryprints.com/pages/myfurryprints-1741"
+            }
+          ]
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        112
+      ],
+      "id": "e82885e4-696c-4be9-bd1f-972e45d94f5e",
+      "name": "Upsert a contact",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "getting submission data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getting submission data": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "map&clean data": {
+      "main": [
+        [
+          {
+            "node": "send contacts to brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "fetch contacts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch contacts": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Compare Datasets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Compare Datasets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "ec4a6200-3833-48d2-958d-26f92ce1e582",
+  "activeVersionId": null,
+  "versionCounter": 7,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-12-03T06:17:42.101Z",
+      "createdAt": "2025-12-03T06:17:42.101Z",
+      "role": "workflow:owner",
+      "workflowId": "kl4FHYqZEsJ3DUs3",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T15:48:05.869Z",
+      "createdAt": "2025-12-18T15:48:05.869Z",
+      "id": "PKKqSH66xvEj4WGC",
+      "name": "tools"
+    }
+  ],
+  "activeVersion": null
+}
