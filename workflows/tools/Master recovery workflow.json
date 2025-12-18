@@ -1,0 +1,631 @@
+{
+  "updatedAt": "2025-12-18T15:49:44.904Z",
+  "createdAt": "2025-11-26T11:35:53.868Z",
+  "id": "gn6gkmmi2lI9oS4C",
+  "name": "Master recovery workflow",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -64
+      ],
+      "id": "97dd94d8-b594-4aea-974f-083778781c86",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The root object of the error payload from the trigger\nconst executionData = $input.item.json;\n\n// Correctly navigate to the error context, now including '.execution'\nconst errorContext = executionData.execution.error.errorResponse.context;\nlet sessionId = null;\n\n// This part of the logic remains the same, as it was correct\nif (errorContext && errorContext.request && errorContext.request.body) {\n  const requestBody = errorContext.request.body;\n\n  if (requestBody.custom_collection && requestBody.custom_collection.metafields) {\n    const sessionIdMetafield = requestBody.custom_collection.metafields.find(\n      (mf) => mf.key === 'session_id'\n    );\n\n    if (sessionIdMetafield) {\n      sessionId = sessionIdMetafield.value;\n    }\n  }\n}\n\nif (!sessionId) {\n  throw new Error(\"Could not extract session_id from the failed node's request body.\");\n}\n\n// Return the final, cleaned-up data for the next steps\nreturn {\n  json: {\n    sessionId: sessionId,\n    // Correctly reference the workflow name from the top-level object\n    failedWorkflow: executionData.workflow.name,\n    // Correctly reference the failing node's name from the error object\n    failedNode: executionData.execution.error.node.name,\n    // Get the more descriptive error message\n    errorMessage: executionData.execution.error.description,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -64
+      ],
+      "id": "c321a29a-8799-480c-a417-91d036d52a7c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "query findProductsByTag($query: String!) {\n  products(first: 250, query: $query) {\n    edges {\n      node {\n        id\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"query\": \"tag:693a9d1bb0f9e02ff705445c\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        -80
+      ],
+      "id": "baca415d-43c4-41b1-8b52-33e09b6f595e",
+      "name": "find products",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        -80
+      ],
+      "id": "203b6e81-19cc-42a2-8148-6f5c499f7338",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "mutation productDelete($id: ID!) {\n  productDelete(input: { id: $id }) {\n    deletedProductId\n    userErrors {\n      field\n      message\n    }\n  }\n}\n",
+        "variables": "={\n  \"id\": \"{{ $json.productId }}\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        32
+      ],
+      "id": "2f369109-2564-4c79-a139-fda05144750e",
+      "name": "delete products",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "query findCollectionsByQuery($query: String!) {\n  collections(first: 50, query: $query) {\n    edges {\n      node {\n        id\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"query\": \"handle:*{{ $json.sessionId.slice(-8) }}\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        -176
+      ],
+      "id": "41bf9c74-aa1e-4473-bd30-4e4db7451260",
+      "name": "find collections",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "mutation collectionDelete($id: ID!) {\n  collectionDelete(input: {id: $id}) {\n    deletedCollectionId\n    userErrors {\n      field\n      message\n    }\n  }\n}",
+        "variables": "={\n  \"id\": \"{{ $json.node.id }}\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        -176
+      ],
+      "id": "d905c5f5-d39f-4f6d-a3cc-77476080fda7",
+      "name": "delete collection",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        256
+      ],
+      "id": "ac7e27d3-d773-41d1-868e-f8a4ecce7cca",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "product",
+        "operation": "delete"
+      },
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        176
+      ],
+      "id": "975bff61-2c42-4ef1-ad4d-5e4defe14202",
+      "name": "Delete a product",
+      "credentials": {
+        "shopifyAccessTokenApi": {
+          "id": "5N1VZYk2hVQpPmgN",
+          "name": "Shopify Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const edges = $json.data.products.edges;\n\nreturn edges.map(e => ({\n  productId: e.node.id\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -80
+      ],
+      "id": "baeba8a8-e4b5-4917-a84a-2341f2ce1f39",
+      "name": "extract product id"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        []
+      ]
+    },
+    "find products": {
+      "main": [
+        [
+          {
+            "node": "extract product id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "find collections",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "delete products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete products": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "find collections": {
+      "main": [
+        [
+          {
+            "node": "delete collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "find products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete a product": {
+      "main": [
+        []
+      ]
+    },
+    "extract product id": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "find products": [
+      {
+        "json": {
+          "data": {
+            "products": {
+              "edges": [
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432028434772"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432030925140"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432031318356"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432031514964"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432031809876"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432032366932"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432032825684"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432033251668"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432033710420"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432034562388"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432035348820"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432035676500"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432036004180"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432036462932"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432036725076"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432037347668"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432037544276"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432037740884"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432038265172"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432038625620"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432038986068"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432039182676"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432039444820"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432039641428"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432039838036"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432040395092"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432041640276"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432044032340"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432044491092"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432044818772"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432045277524"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432045670740"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432046653780"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432047309140"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432048128340"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432048783700"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432049307988"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432049766740"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432050520404"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432051208532"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432051601748"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432052093268"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432052781396"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432053207380"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432053567828"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432053797204"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432054321492"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432054354260"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432054583636"
+                  }
+                },
+                {
+                  "node": {
+                    "id": "gid://shopify/Product/12432054944084"
+                  }
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "cost": {
+              "requestedQueryCost": 13,
+              "actualQueryCost": 4,
+              "throttleStatus": {
+                "maximumAvailable": 2000,
+                "currentlyAvailable": 1996,
+                "restoreRate": 100
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "6ce851c1-188a-4804-9fb4-58db607ca7eb",
+  "activeVersionId": null,
+  "versionCounter": 9,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-26T11:35:53.868Z",
+      "createdAt": "2025-11-26T11:35:53.868Z",
+      "role": "workflow:owner",
+      "workflowId": "gn6gkmmi2lI9oS4C",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T15:48:05.869Z",
+      "createdAt": "2025-12-18T15:48:05.869Z",
+      "id": "PKKqSH66xvEj4WGC",
+      "name": "tools"
+    }
+  ],
+  "activeVersion": null
+}
