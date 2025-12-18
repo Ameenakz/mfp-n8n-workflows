@@ -1,0 +1,722 @@
+{
+  "updatedAt": "2025-11-25T05:25:10.738Z",
+  "createdAt": "2025-10-07T09:03:06.896Z",
+  "id": "fZ4jPvOIur0WOK0w",
+  "name": "00-Submission-Handler",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/lpush/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"submission_id\": \"{{ $json.body.submission_id }}\",\n  \"customer_data\": {{ JSON.stringify($json.body.data) }},\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1392,
+        -720
+      ],
+      "id": "fe3d37f8-20ed-42ff-ac61-0bd97f11edce",
+      "name": "AddToQueue",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "start",
+        "options": {
+          "allowedOrigins": "*",
+          "binaryPropertyName": "images"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1616,
+        -720
+      ],
+      "id": "78e569fc-7af9-4b26-b3f8-8104f0430d12",
+      "name": "Webhook1",
+      "webhookId": "a8527436-2fec-4fd7-a839-b69ee48729a7"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/set/worker_slot_1/active/NX/EX/10800",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1008,
+        -720
+      ],
+      "id": "5a736c1e-091d-4a25-b67c-c119c9a53223",
+      "name": "Try Lock Slot 1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/set/worker_slot_2/active/NX/EX/10800",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -512,
+        -432
+      ],
+      "id": "0ef71421-38a1-47fc-8695-5a0168380049",
+      "name": "Try Lock Slot 2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "23fe652b-d6ff-4ff9-a113-2124a0aafd8d",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -800,
+        -720
+      ],
+      "id": "66b67571-cc99-47e3-84cb-de89966eeed2",
+      "name": "Did Slot 1 Lock?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0c8b442f-2222-40bb-81d6-5c93aa7f866a",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        -432
+      ],
+      "id": "be9a05e6-f513-4458-ba6d-c1f26dfe1cf2",
+      "name": "Did Slot 2 Lock?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "685ced10-1aab-4d2a-8e80-c46fc2dd1816",
+              "name": "slot_id",
+              "value": 1,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        -736
+      ],
+      "id": "9b71e2b7-9655-438a-b6aa-a60fdcc8aa98",
+      "name": "Set Slot ID to 1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "eLq8pHbT2Ox5suyx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/eLq8pHbT2Ox5suyx",
+          "cachedResultName": "01-Hagrid-Beta"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        -736
+      ],
+      "id": "4435f8ff-388e-4d12-b2db-b4ef18be4a6e",
+      "name": "Start Worker 1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "eLq8pHbT2Ox5suyx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/eLq8pHbT2Ox5suyx",
+          "cachedResultName": "01-Hagrid-Beta"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        -448
+      ],
+      "id": "989ef7bf-88e2-41dc-a94c-3e2931737e3a",
+      "name": "Start Worker 2"
+    },
+    {
+      "parameters": {
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -688,
+        -432
+      ],
+      "id": "de9c9c68-8735-4f95-b317-83a240108f3e",
+      "name": "Wait",
+      "webhookId": "deb0f054-5b35-448d-b7e1-369ed8b19772"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://honest-ghoul-37248.upstash.io/del/worker_slot_2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        -448
+      ],
+      "id": "31d2de89-36e5-440c-abdc-a9da90fa61fc",
+      "name": "Release Slot 2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "43e45729-688b-4bc9-831d-96afd940ff73",
+              "name": "slot_id",
+              "value": 2,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -80,
+        -448
+      ],
+      "id": "2ed4455a-a854-42f5-8290-628ee1273893",
+      "name": "Set Slot ID 2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -432
+      ],
+      "id": "1795286f-6ed6-4807-8f03-8598449de519",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "sendTo": "ameena.k@gauger.in, iamdanielsuresh@gmail.com, muhasin23@gmail.com",
+        "subject": "Client submission alert !",
+        "message": "=<div style=\"font-family: 'Arial', sans-serif; color: #333; line-height: 1.6; background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #eee; max-width: 600px;\">\n  \n  <!-- Header -->\n  <h2 style=\"font-size: 24px; margin-top: 0; color: #1a73e8; text-align: center;\">\n    📩 New Client Submission Received!\n  </h2>\n  \n  <!-- Subheader -->\n  <p style=\"font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 20px;\">\n    Hi Team 👋 — exciting update below!\n  </p>\n\n  <!-- Details Section -->\n  <div style=\"background-color: #ffffff; border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);\">\n    <p style=\"margin: 6px 0;\">\n      🕒 <strong>Submission received at:</strong> {{$json[\"body\"][\"created_at\"]}}\n    </p>\n    <p style=\"margin: 6px 0;\">\n      👤 <strong>Client name:</strong> {{$json[\"body\"][\"data\"][4][\"value\"]}} {{$json[\"body\"][\"data\"][5][\"value\"]}}\n    </p>\n    <p style=\"margin: 6px 0;\">\n      📧 <strong>Email address:</strong> {{$json[\"body\"][\"data\"][6][\"value\"]}}\n    </p>\n    <p style=\"margin: 6px 0;\">\n      🐾 <strong>Pet name:</strong> \n      <span style=\"font-size: 18px; font-weight: bold; color: #ff6f00;\">\n        {{$json[\"body\"][\"data\"][2][\"value\"]}}\n      </span>\n    </p>\n  </div>\n\n  <!-- Footer -->\n  <p style=\"margin-top: 20px; font-style: italic; font-weight: bold; color: #28a745; text-align: center;\">\n    Good luck, team! 💪✨\n  </p>\n</div>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1648,
+        -416
+      ],
+      "id": "96b240d9-d4bf-4316-a034-d27e76af012f",
+      "name": "Send a message1",
+      "webhookId": "9bc04397-4a81-40cb-adce-33b03993b2fe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FsfUD7AAk7DNnm5t",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "AddToQueue": {
+      "main": [
+        [
+          {
+            "node": "Try Lock Slot 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "AddToQueue",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Try Lock Slot 1": {
+      "main": [
+        [
+          {
+            "node": "Did Slot 1 Lock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Slot 1 Lock?": {
+      "main": [
+        [
+          {
+            "node": "Set Slot ID to 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Try Lock Slot 2": {
+      "main": [
+        [
+          {
+            "node": "Did Slot 2 Lock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Slot 2 Lock?": {
+      "main": [
+        [
+          {
+            "node": "Set Slot ID 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Slot ID to 1": {
+      "main": [
+        [
+          {
+            "node": "Start Worker 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Try Lock Slot 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Worker 1": {
+      "main": [
+        []
+      ]
+    },
+    "Start Worker 2": {
+      "main": [
+        [
+          {
+            "node": "Release Slot 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Slot ID 2": {
+      "main": [
+        [
+          {
+            "node": "Start Worker 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Try Lock Slot 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "e3A2YjP2DNbrfl9C"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "primary-production-2739c.up.railway.app",
+            "user-agent": "Paperform/1.0",
+            "content-length": "3292",
+            "content-type": "application/json",
+            "x-forwarded-for": "3.239.150.233",
+            "x-forwarded-host": "primary-production-2739c.up.railway.app",
+            "x-forwarded-proto": "https",
+            "x-railway-edge": "railway/us-east4-eqdc4a",
+            "x-railway-request-id": "Us9XqgH_Ruuqf1sRg4a9AQ",
+            "x-real-ip": "3.239.150.233",
+            "x-request-start": "1759999794127",
+            "accept-encoding": "gzip"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "data": [
+              {
+                "title": "Who is your furry friend ? ",
+                "description": "",
+                "type": "choices",
+                "key": "tjhn",
+                "custom_key": null,
+                "value": "Dog"
+              },
+              {
+                "title": "What is your pet's sex?",
+                "description": null,
+                "type": "choices",
+                "key": "70foo",
+                "custom_key": null,
+                "value": "Male"
+              },
+              {
+                "title": "Your pet's name",
+                "description": "",
+                "type": "text",
+                "key": "1pl93",
+                "custom_key": null,
+                "value": "Test1"
+              },
+              {
+                "title": "Pet photos",
+                "description": "Please upload 4 to 6 pictures of your pet",
+                "type": "image",
+                "key": "8objr",
+                "custom_key": null,
+                "value": [
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-10-09/sub3biu/shared%20image%2012.jpeg?expires=1760604593&signature=456390dd6e841f464140bd2ed7d945357a272258cd622d0c49b8063a8784f989",
+                    "name": "shared image (12).jpeg",
+                    "type": "image/jpeg",
+                    "size": 145683,
+                    "width": 1200,
+                    "height": 1600
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-10-09/sua3b3n/shared%20image%2011.jpeg?expires=1760604593&signature=08e58114d50fe3d466c525ce25fb268089335ae8d07dbed18569d41310602bf9",
+                    "name": "shared image (11).jpeg",
+                    "type": "image/jpeg",
+                    "size": 109350,
+                    "width": 768,
+                    "height": 1024
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-10-09/su93bfu/shared%20image%208.jpeg?expires=1760604593&signature=105ad9ad5c3f838a150ad92e000a016c094964579eaed54d4b9fd8532a93446f",
+                    "name": "shared image (8).jpeg",
+                    "type": "image/jpeg",
+                    "size": 145687,
+                    "width": 768,
+                    "height": 1024
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-10-09/sp73bis/shared%20image%206.jpeg?expires=1760604593&signature=a45d2461768ce57799dce8d3b52b031979518c99842e29945e611c6077ef85a2",
+                    "name": "shared image (6).jpeg",
+                    "type": "image/jpeg",
+                    "size": 70939,
+                    "width": 768,
+                    "height": 1024
+                  },
+                  {
+                    "url": "https://paperform.co/file/s3.amazonaws.com/pf-user-files-01/t-474237/uploads/2025-10-09/st83b78/shared%20image%205.jpeg?expires=1760604593&signature=5a3866dac8e6d7773e1b1287fd1e40a25491474b746242a394c73af6d51cfa20",
+                    "name": "shared image (5).jpeg",
+                    "type": "image/jpeg",
+                    "size": 68764,
+                    "width": 768,
+                    "height": 1024
+                  }
+                ]
+              },
+              {
+                "title": "First name",
+                "description": "",
+                "type": "text",
+                "key": "84g9u",
+                "custom_key": null,
+                "value": "Daniel"
+              },
+              {
+                "title": "Last name",
+                "description": "",
+                "type": "text",
+                "key": "b6vtr",
+                "custom_key": null,
+                "value": "Suresh"
+              },
+              {
+                "title": "Email",
+                "description": "",
+                "type": "email",
+                "key": "aohp1",
+                "custom_key": null,
+                "value": "danielsureshkm@gmail.com"
+              }
+            ],
+            "form_id": "683d47c46625d325d100ad12",
+            "slug": "myfurryprints",
+            "submission_id": "68e77731e2062518c103f858",
+            "created_at": "2025-10-09 08:49:53",
+            "ip_address": "111.92.67.68",
+            "charge": {
+              "products": [],
+              "summary": "",
+              "discount": 0,
+              "discounted_subscriptions": [],
+              "coupon": false,
+              "total": 0,
+              "total_cents": 0,
+              "tax": 0,
+              "tax_percentage": 0,
+              "processing_fee": 0,
+              "authorize": null,
+              "receipt_email": false
+            },
+            "team_id": 474237,
+            "base_slug": "ac7a8cum",
+            "trigger": "submission",
+            "device": {
+              "type": "desktop",
+              "device": "Macintosh",
+              "platform": "OS X",
+              "browser": "Safari",
+              "embedded": false,
+              "url": "https://myfurryprints.paperform.co/",
+              "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15",
+              "utm_source": null,
+              "utm_medium": null,
+              "utm_campaign": null,
+              "utm_term": null,
+              "utm_content": null,
+              "ip_address": "111.92.67.68"
+            }
+          },
+          "webhookUrl": "https://primary-production-2739c.up.railway.app/webhook/start",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "versionId": "aa699551-24ad-43b3-87be-3e606be51a6c",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2025-10-07T09:03:06.896Z",
+      "createdAt": "2025-10-07T09:03:06.896Z",
+      "role": "workflow:owner",
+      "workflowId": "fZ4jPvOIur0WOK0w",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
