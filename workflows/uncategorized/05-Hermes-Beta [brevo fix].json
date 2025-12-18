@@ -1,0 +1,1295 @@
+{
+  "updatedAt": "2025-11-17T03:23:33.452Z",
+  "createdAt": "2025-10-29T04:32:19.246Z",
+  "id": "C1BSTwzISWYtNWpk",
+  "name": "05-Hermes-Beta [brevo fix]",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Clears the processing lock, checks for jobs in the queue.\nIf job exists, returns to 01Hagrid and next submission gets executed",
+        "height": 120
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2592,
+        896
+      ],
+      "id": "af1bc651-2838-466f-b460-bbf3753cfab6",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/llen/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2784,
+        272
+      ],
+      "id": "1b2730ae-aa19-4382-a86b-1bcccff4bd22",
+      "name": "CheckQueueForMore",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2992,
+        272
+      ],
+      "id": "774d46a6-d523-4341-9298-ff993f6a8630",
+      "name": "IfQueueHasJobs"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "eLq8pHbT2Ox5suyx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/eLq8pHbT2Ox5suyx",
+          "cachedResultName": "01-Hagrid-Beta"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3232,
+        256
+      ],
+      "id": "3d484d0c-a4fc-4afb-8b0e-cadb42b7c88d",
+      "name": "Call '01-Hagrid-Beta'"
+    },
+    {
+      "parameters": {
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2496,
+        80
+      ],
+      "id": "0e02de5c-dee2-48d2-a74b-0a1cf245fe7d",
+      "name": "Wait",
+      "webhookId": "bb370c21-62e4-49e1-8fe0-80d75c2624ea"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "799cfa36-e3c4-4be2-8ada-9a86f78a4f37",
+      "name": "Create Gallery Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1472,
+        64
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    petname: $('Process Collections').first().json.petname,\n    phoneNumber: $('Debug Gallery Data1').first().json.phoneNumber,\n    page_url: pageUrl,\n    admin_url: `https://j4zewh-kg.myshopify.com/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+      },
+      "id": "64eea979-7cf3-48d5-a8a2-99d72ba53515",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'myfurryprints-' + Date.now().toString().slice(-4),\n  petname: config.petname ,\n  phoneNumber: config.phoneNumber// <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+      },
+      "id": "eaab2a53-e001-4de0-9e4e-69530772f10f",
+      "name": "Process Collections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendTemplate",
+        "templateId": 1,
+        "receipients": "={{ $('Set Configuration').item.json.email + ', support@myfurryprints.com'}}",
+        "additionalFields": {
+          "templateParameters": {
+            "parameterValues": {
+              "parameters": "=registrationUrl={{ $json.page_url }},petname={{ $json.petname }}"
+            }
+          }
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        2096,
+        80
+      ],
+      "id": "d1d335b8-87b4-4b23-9c2e-8a4ea1cd1bc3",
+      "name": "Brevo",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "shopify_store_url",
+              "stringValue": "myfurryprints.com"
+            },
+            {
+              "name": "collection_handles",
+              "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+            },
+            {
+              "name": "email",
+              "stringValue": "={{ $json.email }}"
+            },
+            {
+              "name": "phoneNumber",
+              "stringValue": "={{ $('extracting handle1').item.json.phoneNumber }}"
+            },
+            {
+              "name": "petname",
+              "stringValue": "={{ $json.petname }}"
+            },
+            {
+              "name": "admin_store_url",
+              "stringValue": "j4zewh-kg.myshopify.com"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9c5b8651-6ef1-41ce-9758-062f27863c69",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        832,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        64
+      ],
+      "id": "2297011e-1f4b-45cf-ab0b-18a433620acb",
+      "name": "Consolidate Gallery Data1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+              "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+              "rightValue": 201,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "88d84b86-be74-41be-8568-0c70af408288",
+      "name": "Validate Gallery Creation1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+      },
+      "id": "2a48c079-105c-4c9a-a3fd-6fdf5c8347de",
+      "name": "Debug Gallery Data1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\nconst phoneNumber = firstItem.phoneNumber || ''; // Extract phone number\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    phoneNumber,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        64
+      ],
+      "id": "afb8ea9e-e4b6-4003-bf8c-489ae4a102b7",
+      "name": "extracting handle1"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        48,
+        64
+      ],
+      "id": "1f328188-4cf3-41f3-8d80-2e2be3cb5caa",
+      "name": "Trigger From Ford"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/transactionalSMS/sms",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sender\": \"FurryPrints\",\n  \"recipient\": \"{{ $('Format Response').item.json.phoneNumber.replace(/\\s/g, '') }}\",\n  \"content\": \"🎉 {{ $('Format Response').item.json.petname }}’s artwork is ready! Tap here to see those adorable portraits 😍 {{ $('Format Response').item.json.page_url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        -96
+      ],
+      "id": "82314d15-0d70-4aac-a6cc-bcc2e63f9603",
+      "name": "send sms",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aFcAEYavGsDojoat",
+          "name": "Brevo api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "ameena.k@gauger.in",
+        "subject": "={{ $('Format Response').item.json.petname }}'s Artwork page is created !",
+        "message": "=<div style=\"font-family: Arial, sans-serif; font-size: 16px; color: #333; line-height: 1.5;\">\n  <!-- Header -->\n  <p style=\"font-size: 24px; font-weight: bold; margin-bottom: 5px;\">\n    Hi Team 👋\n  </p>\n\n  <!-- Good news -->\n  <p style=\"font-size: 18px; font-weight: bold; color: #28a745; margin-top: 0;\">\n    🎉 Good news! 🎉\n  </p>\n\n  <!-- Message -->\n  <p style=\"margin: 10px 0;\">\n    We have successfully created the gallery page for \n    <span style=\"font-size: 20px; font-weight: bold; color: #000;\">\n      {{ $('Format Response').item.json.petname }}\n    </span>.\n  </p>\n\n  <!-- Link -->\n  <p style=\"margin: 10px 0;\">\n    Click on the link below to view the page:<br>\n    <a href=\"{{ $('Format Response').item.json.page_url }}\" style=\"color: #1a73e8; text-decoration: none; font-weight: bold;\">\n      {{ $('Format Response').item.json.page_url }}\n    </a>\n  </p>\n\n  <!-- Closing -->\n  <p style=\"margin-top: 15px; font-style: italic; font-weight: bold; color: orange;\">\n    Great work guys! 💪🔥\n  </p>\n</div>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2336,
+        272
+      ],
+      "id": "b8f7391e-c7ea-443b-80ab-fba92c94eeef",
+      "name": "team message",
+      "webhookId": "ab498464-f582-4b4d-9757-c7d7b24ff9a0",
+      "alwaysOutputData": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FsfUD7AAk7DNnm5t",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2528,
+        -96
+      ],
+      "id": "561d43f5-5739-4649-b9f7-a6f62d611ec6",
+      "name": "Wait1",
+      "webhookId": "75691c8c-6168-4a3d-8988-e5390b40690d"
+    }
+  ],
+  "connections": {
+    "CheckQueueForMore": {
+      "main": [
+        [
+          {
+            "node": "IfQueueHasJobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IfQueueHasJobs": {
+      "main": [
+        [
+          {
+            "node": "Call '01-Hagrid-Beta'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "CheckQueueForMore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gallery Page": {
+      "main": [
+        [
+          {
+            "node": "Validate Gallery Creation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Collections": {
+      "main": [
+        [
+          {
+            "node": "Debug Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {
+            "node": "Process Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Set Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Gallery Creation1": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Create Gallery Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracting handle1": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger From Ford": {
+      "main": [
+        [
+          {
+            "node": "extracting handle1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brevo": {
+      "main": [
+        [
+          {
+            "node": "team message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "send sms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send sms": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "CheckQueueForMore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "e3A2YjP2DNbrfl9C"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "Trigger From Ford": [
+      {
+        "json": {
+          "session_id": "6919f811a16c9d890f0b375b",
+          "customer_name": "Cleo Stanley ",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "petGender": "Female",
+          "phoneModel": "iPhone 15",
+          "phoneNumber": "+44 7902 555653"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "66f5927a5020e5f3fb319cb260b298a2",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "02dd1a3d8baa5eb43639ade41f6d6ccbbfd4cd5a",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 200281,
+          "type": "upload",
+          "etag": "5a3c4f0a6cc9c656b2ffdad4c4ca1aef",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt1",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "0cf43aeb203870fb40ed41a68ae34af7",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "bf4c497fc184e14a2f71241e4eb1f5a28929035c",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 191190,
+          "type": "upload",
+          "etag": "c351e133d9e60938692c37a89e3da1b2",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt2",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "c35de22687db53ffe7bb85d6da1d9a31",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "72b2b9c5993c294b8403ed8c270f0683995f42c6",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 256525,
+          "type": "upload",
+          "etag": "358b8c1367b0b295f1907bf1a60a8546",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt3",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "869454dec326627a32932114ee21c272",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "458e738e95f49331e2fa8491235a843545b68200",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 251104,
+          "type": "upload",
+          "etag": "519e11f7eeff3fa76305103a0757eb2b",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 4,
+          "theme_name": "Harry Petter",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt4",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt4",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "50921d422aab71ee602c7d74b059b54b",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "66bfd3f5988c8b0dc35ba56d24e8af7c5b6ff770",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 210506,
+          "type": "upload",
+          "etag": "40efa4768f0a3b0d2cf30fc370fffe7e",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt5",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "88ce37ed4eb8bcc601bc8a4f93e1b1ad",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "f12436c99112b847c04b15db14fd0d8ebfc3aaab",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 214363,
+          "type": "upload",
+          "etag": "f79b3ac6c41de38892c471e730ddb2cf",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt6",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "bbbd99793ceac572c16f042d857bb645",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7",
+          "version": 1763309723,
+          "version_id": "5f8ee8577cfd2927d93b26b953415cc0",
+          "signature": "d7eb2f7f13d72b5ebefc46277af3a8d388274721",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:23Z",
+          "tags": [],
+          "bytes": 250969,
+          "type": "upload",
+          "etag": "6c679543c3d7870668f0b94dd194c11b",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309723/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309723/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 7,
+          "theme_name": "Morning Coffee",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309723/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt7",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "d4a161fb9e1721de852d56887aeb44a5",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "30f093a550c86c49cc02f2ace85772a3610af00a",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 417193,
+          "type": "upload",
+          "etag": "2bf45af22e7a0afd4d94010d2ef97d8d",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 8,
+          "theme_name": "Anime Style",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt8",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "asset_id": "3b0f85a86e527ece887a43e261a6ab33",
+          "public_id": "6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9",
+          "version": 1763309722,
+          "version_id": "128f576dd78c3ee0b5876520fe24d75b",
+          "signature": "b6cd18ab732c3ce129377b24083d4339ca21721e",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-16T16:15:22Z",
+          "tags": [],
+          "bytes": 263446,
+          "type": "upload",
+          "etag": "54d5c6e61008877e2dcf3e6838cda17d",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9.jpg",
+          "asset_folder": "6919f811a16c9d890f0b375b",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6919f811a16c9d890f0b375b",
+          "email": "laurenamygibson@me.com",
+          "petname": "Cleo",
+          "petKind": "Cat",
+          "customer_name": "Cleo Stanley ",
+          "promptIndex": 9,
+          "theme_name": "Shopping Spree",
+          "customFilename": "6919f811a16c9d890f0b375b_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1763309722/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6919f811a16c9d890f0b375b/6919f811a16c9d890f0b375b_prompt9",
+          "phoneNumber": null
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879669076,
+            "handle": "cleo-spadaydeluxe-0f0b375b",
+            "title": "Cleo Spa Day Deluxe",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Spa Day Deluxe artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879669076",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Spa Day Deluxe Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt1.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879734612,
+            "handle": "cleo-midnightsnack-0f0b375b",
+            "title": "Cleo Midnight Snack",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Midnight Snack artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879734612",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Midnight Snack Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt2.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879701844,
+            "handle": "cleo-victorianportrait-0f0b375b",
+            "title": "Cleo Victorian Portrait",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Victorian Portrait artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879701844",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Victorian Portrait Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt3.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879800148,
+            "handle": "cleo-harrypetter-0f0b375b",
+            "title": "Cleo Harry Petter",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Harry Petter artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879800148",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Harry Petter Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt4.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879767380,
+            "handle": "cleo-corporatepet-0f0b375b",
+            "title": "Cleo Corporate Pet",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Corporate Pet artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879767380",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Corporate Pet Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt5.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879636308,
+            "handle": "cleo-homeyoga-0f0b375b",
+            "title": "Cleo Home Yoga",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Home Yoga artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879636308",
+            "image": {
+              "created_at": "2025-11-16T16:15:28+00:00",
+              "alt": "Cleo Home Yoga Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt6.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879898452,
+            "handle": "cleo-morningcoffee-0f0b375b",
+            "title": "Cleo Morning Coffee",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Morning Coffee artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879898452",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Morning Coffee Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt7.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879865684,
+            "handle": "cleo-animestyle-0f0b375b",
+            "title": "Cleo Anime Style",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Anime Style artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:27+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879865684",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Anime Style Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt8.jpg?v=1763309730"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693879832916,
+            "handle": "cleo-shoppingspree-0f0b375b",
+            "title": "Cleo Shopping Spree",
+            "updated_at": "2025-11-16T16:15:30+00:00",
+            "body_html": "<p>Custom Shopping Spree artwork featuring Cleo. High-quality, frame-worthy art available on various products.</p><p>Created for Cleo Stanley  (laurenamygibson@me.com)</p>",
+            "published_at": "2025-11-16T16:15:28+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693879832916",
+            "image": {
+              "created_at": "2025-11-16T16:15:29+00:00",
+              "alt": "Cleo Shopping Spree Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6919f811a16c9d890f0b375b_prompt9.jpg?v=1763309730"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "957ebdb8-bc8b-4f20-85ee-f999ec8ecd2b",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-10-29T04:32:19.246Z",
+      "createdAt": "2025-10-29T04:32:19.246Z",
+      "role": "workflow:owner",
+      "workflowId": "C1BSTwzISWYtNWpk",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-07-16T08:16:44.235Z",
+      "createdAt": "2025-07-16T08:16:44.235Z",
+      "id": "llHNDAkMynWsjGrL",
+      "name": "stable"
+    },
+    {
+      "updatedAt": "2025-07-16T08:16:55.035Z",
+      "createdAt": "2025-07-16T08:16:55.035Z",
+      "id": "HpZuiTbFKrPkyXWu",
+      "name": "production"
+    },
+    {
+      "updatedAt": "2025-07-23T05:50:47.125Z",
+      "createdAt": "2025-07-23T05:50:47.125Z",
+      "id": "35DLj8FhqJbXBz8P",
+      "name": "printify"
+    },
+    {
+      "updatedAt": "2025-10-29T04:31:34.866Z",
+      "createdAt": "2025-10-29T04:31:34.866Z",
+      "id": "zTzGvJwJX3OKvb13",
+      "name": "sms"
+    },
+    {
+      "updatedAt": "2025-10-29T04:32:16.172Z",
+      "createdAt": "2025-10-29T04:32:16.172Z",
+      "id": "35biF412YQqeKMlQ",
+      "name": "titlefix"
+    }
+  ],
+  "activeVersion": null
+}
