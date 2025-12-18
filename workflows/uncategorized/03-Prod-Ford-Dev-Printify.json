@@ -1,0 +1,1625 @@
+{
+  "updatedAt": "2025-07-28T06:44:22.592Z",
+  "createdAt": "2025-07-23T06:18:32.100Z",
+  "id": "d7oQasTr1wKktbjo",
+  "name": "03-Prod-Ford-Dev-Printify",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4440,
+        -840
+      ],
+      "id": "0241494e-4a37-4708-aef1-263dc847bd39",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const petKind = customerData.petkind || imageJson.petkind || \"Pet\";\n  const petGender = $input.first().json.petGender|| imageJson.petgender || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petGender: petGender,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4220,
+        -840
+      ],
+      "id": "6f48831e-5478-4b2c-b46c-8694f3d6d4e4",
+      "name": "Split_Product_Types"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.transformations.watermark }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n     {\n          \"namespace\": \"custom\",\n          \"key\": \"pet_kind\",                       \n          \"value\": \"{{ $json.petKind }}\",\n          \"type\": \"single_line_text_field\"\n     },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4000,
+        -840
+      ],
+      "id": "1d31276d-5336-428d-b3f1-bcf39f5da572",
+      "name": "Create_shopify_collection1",
+      "retryOnFail": false,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3560,
+        -840
+      ],
+      "id": "c8deeb76-df77-45ff-90c9-0698532dd8d1",
+      "name": "Extract Collection Data"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1800,
+        -865
+      ],
+      "id": "bfa57103-11d8-4bd9-91da-dd6fd87b5a52",
+      "name": "Wait",
+      "webhookId": "04d06e4c-491a-45f4-aa53-0ad22bc715a4"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3340,
+        -840
+      ],
+      "id": "db57f4b0-5487-4019-b84d-3d70bae95e86",
+      "name": "Loop Product Templates"
+    },
+    {
+      "parameters": {
+        "content": "LOOP 1: \nProduct creation",
+        "height": 580,
+        "width": 1840,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3400,
+        -1100
+      ],
+      "id": "c705ca90-1311-42d8-b9ed-d0be16ae2317",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst outputItems = [];\n\n// Define your Printify products\nconst printifyProducts = {\n  \"clothing\": [\n    { \n      blueprint_id: 12, \n      print_provider_id: 331, \n      name: \"Premium Cotton Unisex T-shirt\",\n      variant_id:[18099,18100,18101,18102,18103,18104,18539,18540,18541,18542,18543,18544],\n      product_type: \"clothing\"\n    }\n  ],\n  \"other\": [\n    { \n      blueprint_id: 635, \n      print_provider_id: 94, \n      name: \"Color Accent Mug\",\n      variant_id:[72180,72183,72184,105888],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 421, \n      print_provider_id: 23, \n      name: \"Tough Phone Case - iPhone, Samsung, Google\",\n      variant_id:[75383,75385,75387,75389,77841,77843,77845,79425,80152,80154,80156,96397,96399,96401,96403,96738,96740,96742,98738,102547,102549,102551,102553,105148,105150,105152,105154,105156,112191,112193,112195,112197,116386,116388,116390,117862,117864,117866],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 764, \n      print_provider_id: 72, \n      name: \"Premium Framed Poster\",\n      variant_id:[75328,75330,75332],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 937, \n      print_provider_id: 105, \n      name: \"Canvas Portrait\",\n      variant_id: [95213,95214],\n      product_type: \"other\"\n    }    \n  ]\n};\n\n// Get source data from Split_Product_Types node\nconst allSourceData = $('Split_Product_Types').all();\n\n// Cloudinary config\nconst cloudName = 'myfurryprints';\nconst maskId = 'Mask3larger_jpm63l';\nconst CLOTHING_TX = `e_upscale/c_scale,w_4000/l_${maskId},w_4000,fl_cutter`;\nconst OTHER_TX = `e_upscale/c_scale,w_4000`;\n\n// Helper to build the Cloudinary URL based on product type\nfunction buildImageUrl(productType, publicId) {\n  const base = `https://res.cloudinary.com/${cloudName}/image/upload`;\n  return productType === 'clothing'\n    ? `${base}/${CLOTHING_TX}/${publicId}`\n    : `${base}/${OTHER_TX}/${publicId}`;\n}\n\n// Main loop\nitems.forEach(item => {\n  const collection = item.json.custom_collection;\n\n  const sourceDataItem = allSourceData.find(\n    sourceItem => sourceItem.json.collection_name === collection.title\n  );\n\n  if (!collection || !sourceDataItem) return; // skip if either is missing\n\n  const sourceData = sourceDataItem.json;\n  const publicId = sourceData.public_id;\n\n  // Combine clothing and other products into one loop\n  const allProducts = [...printifyProducts.clothing, ...printifyProducts.other];\n\n  allProducts.forEach(product => {\n    const imageUrl = buildImageUrl(product.product_type, publicId);\n\n    outputItems.push({\n      json: {\n        session_id:            sourceData.session_id,\n        email:                 sourceData.email,\n        petname:               sourceData.petname,\n        customer_name:         sourceData.customer_name,\n        promptIndex:           sourceData.promptIndex,\n        theme_name:            sourceData.theme_name,\n        shopify_collection_id: collection.id,\n\n        product_type:          product.product_type,\n        image_url:             imageUrl,\n        blueprint_id:          product.blueprint_id,\n        print_provider_id:     product.print_provider_id,\n        product_title:         `${sourceData.theme_name} - ${product.name}`,\n        template_name:         product.name,\n        required_variant_ids:  product.variant_id // <-- This is the added line\n      }\n    });\n\n    console.log(`✅ Created ${product.product_type} product with URL: ${imageUrl}`);\n  });\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3780,
+        -840
+      ],
+      "id": "f3098600-dd37-4727-9072-2b4e6d82807c",
+      "name": "Map_Printify_Products"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printify.com/v1/uploads/images.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file_name\": \"{{ $json.petname }}_{{ $json.theme_name }}.jpg\",\n  \"url\": \"{{ $json.image_url }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3120,
+        -1040
+      ],
+      "id": "a7820264-5336-41a3-a5a0-da33568fe1c8",
+      "name": "Upload_Image_To_Printify",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.blueprint_id }}/print_providers/{{ $json.print_provider_id }}/variants.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2900,
+        -840
+      ],
+      "id": "9d3a7670-dc08-49fe-830c-fd8f761c6308",
+      "name": "Get_Print_Provider_Variants",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ZwQuXy3mFoa7bh3H",
+          "name": "cloudinaryFurryPrints"
+        },
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// This code is designed for the SEQUENTIAL flow.\n\n// 1. Get the original data from the start of the loop\nconst productInfo = $('Loop Product Templates').item.json;\n\n// 2. Get the result of the image upload\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\n\n// 3. Get the result of the variants API call (this is the direct input)\nconst providerVariantsResponse = $input.item.json;\n\n// --- Error Checking --\nif (!productInfo || !productInfo.product_title) {\n  throw new Error(\"Could not find original product data (like product_title) from the loop.\");\n}\nif (!uploadedImage || !uploadedImage.id) {\n  throw new Error(\"Could not find a valid image ID from the upload step.\");\n}\nif (!providerVariantsResponse || !providerVariantsResponse.variants) {\n  throw new Error(\"Could not find a valid variants array from the API call.\");\n}\n\n\n// --- Dynamically extract placeholder position from provider response ---\nconst placeholderPosition = providerVariantsResponse.variants?.[0]?.print_areas?.[0]?.placeholders?.[0]?.position || \"front\";\n\n// --- UPDATED LOGIC STARTS HERE ---\n\n// Get the list of variant IDs we passed from the \"Map_Printify_Products\" node\nconst requiredVariantIds = productInfo.required_variant_ids;\nif (!requiredVariantIds || !Array.isArray(requiredVariantIds)) {\n  throw new Error(\"Could not find the 'required_variant_ids' array. Check the 'Map_Printify_Products' node.\");\n}\n\n// Filter the variants from the API response to only include the ones we want\nconst variants = providerVariantsResponse.variants\n  .filter(variant => requiredVariantIds.includes(variant.id))\n  .map(variant => ({\n    id: variant.id,\n    price: 2999, // You can keep this or adjust as needed\n    is_enabled: true\n  }));\n\nif (variants.length === 0) {\n    throw new Error(`Could not find any matching variants for the provided IDs: ${requiredVariantIds.join(', ')}`);\n}\n\nconst all_variant_ids = variants.map(v => v.id);\n\n// --- UPDATED LOGIC ENDS HERE ---\n\nconst payload = {\n  \"title\": productInfo.product_title,\n  \"description\": `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}. High-quality print-on-demand product perfect for pet lovers.</p>`,\n  \"blueprint_id\": productInfo.blueprint_id,\n  \"print_provider_id\": productInfo.print_provider_id,\n  \"variants\": variants,\n  \"print_areas\": [\n    {\n      \"variant_ids\": all_variant_ids,\n      \"placeholders\": [\n        {\n          \"position\": placeholderPosition,\n          \"images\": [\n            {\n              \"id\": uploadedImage.id,\n              \"x\": 0.5,\n              \"y\": 0.5,\n              \"scale\": 1,\n              \"angle\": 0\n            }\n          ]\n        }\n      ]\n    }\n  ]\n};\n\n// Return the final data\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2460,
+        -940
+      ],
+      "id": "e4c399fc-d31a-4e3e-9f65-457221d762b1",
+      "name": "Prepare_Printify_Product_Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.printifyPayload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2240,
+        -940
+      ],
+      "id": "48429ac5-35b8-4dfb-8186-50bef8a59a3a",
+      "name": "Create_Printify_Product",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('Create_Printify_Product').item.json.id }}/publish.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": true,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2020,
+        -1280
+      ],
+      "id": "53bc6b93-ddad-4db6-8baa-c924d56f942a",
+      "name": "Publish_Printify_Product",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QyrLm1DfKVd2QbzS",
+          "name": "Printify API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2680,
+        -940
+      ],
+      "id": "e83fe071-9e32-4177-859e-c1cdf9e02d04",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f46f174-b276-433a-a2a8-d11be21fa51f",
+              "name": "image_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2900,
+        -1040
+      ],
+      "id": "090db9c0-ca92-42bd-8914-8343ccb8bb90",
+      "name": "Set_Image_ID"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Split_Product_Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_Product_Types": {
+      "main": [
+        [
+          {
+            "node": "Create_shopify_collection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_shopify_collection1": {
+      "main": [
+        [
+          {
+            "node": "Map_Printify_Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Collection Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Product Templates": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Upload_Image_To_Printify",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get_Print_Provider_Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map_Printify_Products": {
+      "main": [
+        [
+          {
+            "node": "Extract Collection Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload_Image_To_Printify": {
+      "main": [
+        [
+          {
+            "node": "Set_Image_ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Print_Provider_Variants": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_Printify_Product_Payload": {
+      "main": [
+        [
+          {
+            "node": "Create_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "Publish_Printify_Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish_Printify_Product": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare_Printify_Product_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_Image_ID": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "session_id": "68807c58608f280a8f06c373",
+          "customer_name": "Daniel Suresh",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "petGender": "Male"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "85f63ee8a152eee12fcf130bd1a024c5",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "92a0b168bab69bff871904f724c3b12dc41807f8",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 221350,
+          "type": "upload",
+          "etag": "18da70b5689bb124913544435cfa8542",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "68807c58608f280a8f06c373_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt1"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "884859faf4f77b9cb6127392de49e445",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "d34fe8e9024a4fea788d1b5d940f3ba4596ae5e9",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 198376,
+          "type": "upload",
+          "etag": "54aaa8061f2953225f5e46ed195c3ec9",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "68807c58608f280a8f06c373_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt2"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "2d742de4aed2ee5345b9dd1fb1d0858e",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "ffd661a3d4e23168db602f9bd2775a3a9f125bc3",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 253653,
+          "type": "upload",
+          "etag": "3aa06803db974152136dbe748908fa8f",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "68807c58608f280a8f06c373_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt3"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "3231773cd85da318b4549d73f8409300",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "c49303f0d04c5861a0f78adadef6a98195de215a",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 232562,
+          "type": "upload",
+          "etag": "281d3ee358a3c339194941093b41ae7a",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 4,
+          "theme_name": "Harry Petter",
+          "customFilename": "68807c58608f280a8f06c373_prompt4",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt4"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "629e0c804553f00ac3b311ac910361fd",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "65863eb907ce8ceaff890cdce14c13695b3b935b",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 255073,
+          "type": "upload",
+          "etag": "056bf4589c0eaaa2967baad747ccc6d0",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "68807c58608f280a8f06c373_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt5"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "bc255bda758169e469735325e240f4f4",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "c26bcf9d7e0add7956efd81529f3bb3d3cbb7f1e",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 194131,
+          "type": "upload",
+          "etag": "c457135fa3f20b660169c19fa3f43473",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "68807c58608f280a8f06c373_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt6"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "effb44b16286c20293b46c12aa8c0901",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "96957711429fef8555524311f92f291f11a2adaa",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 258749,
+          "type": "upload",
+          "etag": "73a0f2634e48f3803e28326d35fb6242",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 7,
+          "theme_name": "Game of Thrones",
+          "customFilename": "68807c58608f280a8f06c373_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt7"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "9e1097085cd9945d51117a5d2a5b01ae",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "25ee79eee78c35088cb3d4a894ee57ae86d5ccbc",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 439794,
+          "type": "upload",
+          "etag": "00ae4e30bb770baf6d901999b4e86812",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 8,
+          "theme_name": "Morning Coffee",
+          "customFilename": "68807c58608f280a8f06c373_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt8"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "f38b151e3e3f9e515842ed71bf92d958",
+          "public_id": "68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9",
+          "version": 1753251067,
+          "version_id": "7644f7f3c096d65c2dee342934fd82c5",
+          "signature": "d7cb58774b3c96977ae1e8a08a3329a2a17790dc",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-07-23T06:11:07Z",
+          "tags": [],
+          "bytes": 341363,
+          "type": "upload",
+          "etag": "d10f14e8288e8a44c8349e55c2409027",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9.jpg",
+          "asset_folder": "68807c58608f280a8f06c373",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "68807c58608f280a8f06c373",
+          "email": "danielsureshkm@gmail.com",
+          "petname": "Milo",
+          "petKind": "Cat",
+          "customer_name": "Daniel Suresh",
+          "promptIndex": 9,
+          "theme_name": "Anime Style",
+          "customFilename": "68807c58608f280a8f06c373_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1753251067/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/c_scale,w_4000/68807c58608f280a8f06c373/68807c58608f280a8f06c373_prompt9"
+        }
+      }
+    ],
+    "Create_shopify_collection1": [
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999082324,
+            "handle": "milo-spadaydeluxe-8f06c373",
+            "title": "Milo Spa Day Deluxe",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Spa Day Deluxe artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999082324",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Spa Day Deluxe Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt1.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999213396,
+            "handle": "milo-midnightsnack-8f06c373",
+            "title": "Milo Midnight Snack",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Midnight Snack artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999213396",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Midnight Snack Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt2.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999016788,
+            "handle": "milo-victorianportrait-8f06c373",
+            "title": "Milo Victorian Portrait",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Victorian Portrait artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999016788",
+            "image": {
+              "created_at": "2025-07-23T07:12:28+01:00",
+              "alt": "Milo Victorian Portrait Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt3.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999115092,
+            "handle": "milo-harrypetter-8f06c373",
+            "title": "Milo Harry Petter",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Harry Petter artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999115092",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Harry Petter Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt4.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999278932,
+            "handle": "milo-corporatepet-8f06c373",
+            "title": "Milo Corporate Pet",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Corporate Pet artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999278932",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Corporate Pet Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt5.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999147860,
+            "handle": "milo-homeyoga-8f06c373",
+            "title": "Milo Home Yoga",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Home Yoga artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999147860",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Home Yoga Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt6.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999180628,
+            "handle": "milo-gameofthrones-8f06c373",
+            "title": "Milo Game of Thrones",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Game of Thrones artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999180628",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Game of Thrones Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt7.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999049556,
+            "handle": "milo-morningcoffee-8f06c373",
+            "title": "Milo Morning Coffee",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Morning Coffee artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999049556",
+            "image": {
+              "created_at": "2025-07-23T07:12:28+01:00",
+              "alt": "Milo Morning Coffee Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt8.jpg?v=1753251150"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 684999246164,
+            "handle": "milo-animestyle-8f06c373",
+            "title": "Milo Anime Style",
+            "updated_at": "2025-07-23T07:12:30+01:00",
+            "body_html": "<p>Custom Anime Style artwork featuring Milo. High-quality, frame-worthy art available on various products.</p><p>Created for Daniel Suresh (danielsureshkm@gmail.com)</p>",
+            "published_at": "2025-07-23T07:12:27+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/684999246164",
+            "image": {
+              "created_at": "2025-07-23T07:12:29+01:00",
+              "alt": "Milo Anime Style Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/68807c58608f280a8f06c373_prompt9.jpg?v=1753251150"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "7b5f2d03-08d7-4825-a329-c111651e7329",
+  "activeVersionId": "7b5f2d03-08d7-4825-a329-c111651e7329",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-07-23T06:18:32.100Z",
+      "createdAt": "2025-07-23T06:18:32.100Z",
+      "role": "workflow:owner",
+      "workflowId": "d7oQasTr1wKktbjo",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-07-16T05:47:05.580Z",
+      "createdAt": "2025-07-16T05:47:05.580Z",
+      "id": "hn6s8vvm70Sc55aF",
+      "name": "testing"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "7b5f2d03-08d7-4825-a329-c111651e7329",
+    "workflowId": "d7oQasTr1wKktbjo",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -4440,
+          -840
+        ],
+        "id": "0241494e-4a37-4708-aef1-263dc847bd39",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const petKind = customerData.petkind || imageJson.petkind || \"Pet\";\n  const petGender = $input.first().json.petGender|| imageJson.petgender || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petGender: petGender,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -4220,
+          -840
+        ],
+        "id": "6f48831e-5478-4b2c-b46c-8694f3d6d4e4",
+        "name": "Split_Product_Types"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.transformations.watermark }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n     {\n          \"namespace\": \"custom\",\n          \"key\": \"pet_kind\",                       \n          \"value\": \"{{ $json.petKind }}\",\n          \"type\": \"single_line_text_field\"\n     },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -4000,
+          -840
+        ],
+        "id": "1d31276d-5336-428d-b3f1-bcf39f5da572",
+        "name": "Create_shopify_collection1",
+        "retryOnFail": false,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3560,
+          -840
+        ],
+        "id": "c8deeb76-df77-45ff-90c9-0698532dd8d1",
+        "name": "Extract Collection Data"
+      },
+      {
+        "parameters": {
+          "amount": 10
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -1800,
+          -865
+        ],
+        "id": "bfa57103-11d8-4bd9-91da-dd6fd87b5a52",
+        "name": "Wait",
+        "webhookId": "04d06e4c-491a-45f4-aa53-0ad22bc715a4"
+      },
+      {
+        "parameters": {
+          "options": {
+            "reset": false
+          }
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -3340,
+          -840
+        ],
+        "id": "db57f4b0-5487-4019-b84d-3d70bae95e86",
+        "name": "Loop Product Templates"
+      },
+      {
+        "parameters": {
+          "content": "LOOP 1: \nProduct creation",
+          "height": 580,
+          "width": 1840,
+          "color": 4
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -3400,
+          -1100
+        ],
+        "id": "c705ca90-1311-42d8-b9ed-d0be16ae2317",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst outputItems = [];\n\n// Define your Printify products\nconst printifyProducts = {\n  \"clothing\": [\n    { \n      blueprint_id: 12, \n      print_provider_id: 331, \n      name: \"Premium Cotton Unisex T-shirt\",\n      variant_id:[18099,18100,18101,18102,18103,18104,18539,18540,18541,18542,18543,18544],\n      product_type: \"clothing\"\n    }\n  ],\n  \"other\": [\n    { \n      blueprint_id: 635, \n      print_provider_id: 94, \n      name: \"Color Accent Mug\",\n      variant_id:[72180,72183,72184,105888],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 421, \n      print_provider_id: 23, \n      name: \"Tough Phone Case - iPhone, Samsung, Google\",\n      variant_id:[75383,75385,75387,75389,77841,77843,77845,79425,80152,80154,80156,96397,96399,96401,96403,96738,96740,96742,98738,102547,102549,102551,102553,105148,105150,105152,105154,105156,112191,112193,112195,112197,116386,116388,116390,117862,117864,117866],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 764, \n      print_provider_id: 72, \n      name: \"Premium Framed Poster\",\n      variant_id:[75328,75330,75332],\n      product_type: \"other\"\n    },\n    { \n      blueprint_id: 937, \n      print_provider_id: 105, \n      name: \"Canvas Portrait\",\n      variant_id: [95213,95214],\n      product_type: \"other\"\n    }    \n  ]\n};\n\n// Get source data from Split_Product_Types node\nconst allSourceData = $('Split_Product_Types').all();\n\n// Cloudinary config\nconst cloudName = 'myfurryprints';\nconst maskId = 'Mask3larger_jpm63l';\nconst CLOTHING_TX = `e_upscale/c_scale,w_4000/l_${maskId},w_4000,fl_cutter`;\nconst OTHER_TX = `e_upscale/c_scale,w_4000`;\n\n// Helper to build the Cloudinary URL based on product type\nfunction buildImageUrl(productType, publicId) {\n  const base = `https://res.cloudinary.com/${cloudName}/image/upload`;\n  return productType === 'clothing'\n    ? `${base}/${CLOTHING_TX}/${publicId}`\n    : `${base}/${OTHER_TX}/${publicId}`;\n}\n\n// Main loop\nitems.forEach(item => {\n  const collection = item.json.custom_collection;\n\n  const sourceDataItem = allSourceData.find(\n    sourceItem => sourceItem.json.collection_name === collection.title\n  );\n\n  if (!collection || !sourceDataItem) return; // skip if either is missing\n\n  const sourceData = sourceDataItem.json;\n  const publicId = sourceData.public_id;\n\n  // Combine clothing and other products into one loop\n  const allProducts = [...printifyProducts.clothing, ...printifyProducts.other];\n\n  allProducts.forEach(product => {\n    const imageUrl = buildImageUrl(product.product_type, publicId);\n\n    outputItems.push({\n      json: {\n        session_id:            sourceData.session_id,\n        email:                 sourceData.email,\n        petname:               sourceData.petname,\n        customer_name:         sourceData.customer_name,\n        promptIndex:           sourceData.promptIndex,\n        theme_name:            sourceData.theme_name,\n        shopify_collection_id: collection.id,\n\n        product_type:          product.product_type,\n        image_url:             imageUrl,\n        blueprint_id:          product.blueprint_id,\n        print_provider_id:     product.print_provider_id,\n        product_title:         `${sourceData.theme_name} - ${product.name}`,\n        template_name:         product.name,\n        required_variant_ids:  product.variant_id // <-- This is the added line\n      }\n    });\n\n    console.log(`✅ Created ${product.product_type} product with URL: ${imageUrl}`);\n  });\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3780,
+          -840
+        ],
+        "id": "f3098600-dd37-4727-9072-2b4e6d82807c",
+        "name": "Map_Printify_Products"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.printify.com/v1/uploads/images.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"file_name\": \"{{ $json.petname }}_{{ $json.theme_name }}.jpg\",\n  \"url\": \"{{ $json.image_url }}\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3120,
+          -1040
+        ],
+        "id": "a7820264-5336-41a3-a5a0-da33568fe1c8",
+        "name": "Upload_Image_To_Printify",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://api.printify.com/v1/catalog/blueprints/{{ $json.blueprint_id }}/print_providers/{{ $json.print_provider_id }}/variants.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2900,
+          -840
+        ],
+        "id": "9d3a7670-dc08-49fe-830c-fd8f761c6308",
+        "name": "Get_Print_Provider_Variants",
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "ZwQuXy3mFoa7bh3H",
+            "name": "cloudinaryFurryPrints"
+          },
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// This code is designed for the SEQUENTIAL flow.\n\n// 1. Get the original data from the start of the loop\nconst productInfo = $('Loop Product Templates').item.json;\n\n// 2. Get the result of the image upload\nconst uploadedImage = $('Upload_Image_To_Printify').item.json;\n\n// 3. Get the result of the variants API call (this is the direct input)\nconst providerVariantsResponse = $input.item.json;\n\n// --- Error Checking --\nif (!productInfo || !productInfo.product_title) {\n  throw new Error(\"Could not find original product data (like product_title) from the loop.\");\n}\nif (!uploadedImage || !uploadedImage.id) {\n  throw new Error(\"Could not find a valid image ID from the upload step.\");\n}\nif (!providerVariantsResponse || !providerVariantsResponse.variants) {\n  throw new Error(\"Could not find a valid variants array from the API call.\");\n}\n\n\n// --- Dynamically extract placeholder position from provider response ---\nconst placeholderPosition = providerVariantsResponse.variants?.[0]?.print_areas?.[0]?.placeholders?.[0]?.position || \"front\";\n\n// --- UPDATED LOGIC STARTS HERE ---\n\n// Get the list of variant IDs we passed from the \"Map_Printify_Products\" node\nconst requiredVariantIds = productInfo.required_variant_ids;\nif (!requiredVariantIds || !Array.isArray(requiredVariantIds)) {\n  throw new Error(\"Could not find the 'required_variant_ids' array. Check the 'Map_Printify_Products' node.\");\n}\n\n// Filter the variants from the API response to only include the ones we want\nconst variants = providerVariantsResponse.variants\n  .filter(variant => requiredVariantIds.includes(variant.id))\n  .map(variant => ({\n    id: variant.id,\n    price: 2999, // You can keep this or adjust as needed\n    is_enabled: true\n  }));\n\nif (variants.length === 0) {\n    throw new Error(`Could not find any matching variants for the provided IDs: ${requiredVariantIds.join(', ')}`);\n}\n\nconst all_variant_ids = variants.map(v => v.id);\n\n// --- UPDATED LOGIC ENDS HERE ---\n\nconst payload = {\n  \"title\": productInfo.product_title,\n  \"description\": `<p>Custom ${productInfo.theme_name} artwork featuring ${productInfo.petname}. High-quality print-on-demand product perfect for pet lovers.</p>`,\n  \"blueprint_id\": productInfo.blueprint_id,\n  \"print_provider_id\": productInfo.print_provider_id,\n  \"variants\": variants,\n  \"print_areas\": [\n    {\n      \"variant_ids\": all_variant_ids,\n      \"placeholders\": [\n        {\n          \"position\": placeholderPosition,\n          \"images\": [\n            {\n              \"id\": uploadedImage.id,\n              \"x\": 0.5,\n              \"y\": 0.5,\n              \"scale\": 1,\n              \"angle\": 0\n            }\n          ]\n        }\n      ]\n    }\n  ]\n};\n\n// Return the final data\nreturn {\n  json: {\n    ...productInfo,\n    printifyPayload: payload\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2460,
+          -940
+        ],
+        "id": "e4c399fc-d31a-4e3e-9f65-457221d762b1",
+        "name": "Prepare_Printify_Product_Payload"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.printify.com/v1/shops/21658609/products.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.printifyPayload }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2240,
+          -940
+        ],
+        "id": "48429ac5-35b8-4dfb-8186-50bef8a59a3a",
+        "name": "Create_Printify_Product",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://api.printify.com/v1/shops/21658609/products/{{ $('Create_Printify_Product').item.json.id }}/publish.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"title\": true,\n  \"description\": true,\n  \"images\": true,\n  \"variants\": true,\n  \"tags\": true,\n  \"keyFeatures\": true,\n  \"shipping_template\": true\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2020,
+          -1280
+        ],
+        "id": "53bc6b93-ddad-4db6-8baa-c924d56f942a",
+        "name": "Publish_Printify_Product",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "QyrLm1DfKVd2QbzS",
+            "name": "Printify API Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "combine",
+          "combineBy": "combineByPosition",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          -2680,
+          -940
+        ],
+        "id": "e83fe071-9e32-4177-859e-c1cdf9e02d04",
+        "name": "Merge"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "6f46f174-b276-433a-a2a8-d11be21fa51f",
+                "name": "image_id",
+                "value": "={{ $json.id }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -2900,
+          -1040
+        ],
+        "id": "090db9c0-ca92-42bd-8914-8343ccb8bb90",
+        "name": "Set_Image_ID"
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Split_Product_Types",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split_Product_Types": {
+        "main": [
+          [
+            {
+              "node": "Create_shopify_collection1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_shopify_collection1": {
+        "main": [
+          [
+            {
+              "node": "Map_Printify_Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Collection Data": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Product Templates": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Upload_Image_To_Printify",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Get_Print_Provider_Variants",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Map_Printify_Products": {
+        "main": [
+          [
+            {
+              "node": "Extract Collection Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload_Image_To_Printify": {
+        "main": [
+          [
+            {
+              "node": "Set_Image_ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get_Print_Provider_Variants": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare_Printify_Product_Payload": {
+        "main": [
+          [
+            {
+              "node": "Create_Printify_Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_Printify_Product": {
+        "main": [
+          [
+            {
+              "node": "Publish_Printify_Product",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Publish_Printify_Product": {
+        "main": [
+          [
+            {
+              "node": "Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Prepare_Printify_Product_Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set_Image_ID": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-07-28T06:44:22.592Z",
+        "id": 77,
+        "workflowId": "d7oQasTr1wKktbjo",
+        "versionId": "7b5f2d03-08d7-4825-a329-c111651e7329",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
