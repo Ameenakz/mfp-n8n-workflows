@@ -1,0 +1,476 @@
+{
+  "updatedAt": "2025-09-09T07:48:26.720Z",
+  "createdAt": "2025-07-20T16:00:37.661Z",
+  "id": "MTItwmRNg9iHqy1Q",
+  "name": "My workflow 2",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "668628ec-a9e6-4e72-afa9-859b5aa559a7",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2420,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate date from 1 week ago\nconst oneWeekAgo = new Date();\noneWeekAgo.setDate(oneWeekAgo.getDate() - 14);\nconst cutoffDate = oneWeekAgo.toISOString();\n\n// Set the cutoff date for filtering\nreturn [{\n  json: {\n    cutoff_date: cutoffDate,\n    formatted_date: oneWeekAgo.toLocaleDateString()\n  }\n}];"
+      },
+      "id": "dfda823a-abf8-41b3-8be1-fbf2e226f10d",
+      "name": "Calculate Cutoff Date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://https://j4zewh-kg.myshopify.com/admin/api/2024-10/graphql.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query getProducts($first: Int!, $after: String) {\\n    products(first: $first, after: $after, query: \\\"created_at:<{{ $('Calculate Cutoff Date').item.json.cutoff_date }}\\\") {\\n      pageInfo {\\n        hasNextPage\\n        endCursor\\n      }\\n      edges {\\n        node {\\n          id\\n          title\\n          handle\\n          createdAt\\n          status\\n        }\\n      }\\n    }\\n  }\",\n  \"variables\": {\n    \"first\": 50,\n    \"after\": null\n  }\n}",
+        "options": {}
+      },
+      "id": "93979441-369a-4f90-b894-c7f59d215e71",
+      "name": "Fetch Products Created Before Last Week",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1760,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.data.products.edges.length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "11d40979-7640-4e25-8ae2-474ed04870d3",
+      "name": "Check if Products Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract product IDs and prepare for batch deletion\nconst products = $input.item.json.data.products.edges;\nconst productIds = products.map(edge => edge.node.id);\nconst productTitles = products.map(edge => edge.node.title);\n\n// Create batches of 10 products for deletion (GraphQL mutation limit)\nconst batchSize = 10;\nconst batches = [];\n\nfor (let i = 0; i < productIds.length; i += batchSize) {\n  const batch = productIds.slice(i, i + batchSize);\n  batches.push({\n    product_ids: batch,\n    batch_number: Math.floor(i / batchSize) + 1,\n    total_batches: Math.ceil(productIds.length / batchSize)\n  });\n}\n\nreturn batches.map(batch => ({ json: batch }));"
+      },
+      "id": "fe34f998-b29a-42fd-86da-19c38f1a8b6f",
+      "name": "Prepare Deletion Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1320,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "e3ae3ca1-dbd0-4416-b5ac-2741cb1ed811",
+      "name": "Process Batches Sequentially",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create GraphQL mutation for batch deletion\nconst productIds = $input.item.json.product_ids;\nconst batchNumber = $input.item.json.batch_number;\nconst totalBatches = $input.item.json.total_batches;\n\n// Build the GraphQL mutation string\nlet mutationString = 'mutation {';\nproductIds.forEach((id, index) => {\n  mutationString += `\\n  delete${index}: productDelete(input: { id: \"${id}\" }) {\\n    deletedProductId\\n    userErrors {\\n      field\\n      message\\n    }\\n  }`;\n});\nmutationString += '\\n}';\n\nreturn [{\n  json: {\n    mutation: mutationString,\n    batch_number: batchNumber,\n    total_batches: totalBatches,\n    products_in_batch: productIds.length\n  }\n}];"
+      },
+      "id": "087b17f1-0202-4513-8060-c511be89c3b9",
+      "name": "Build GraphQL Deletion Mutation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Set Shopify Credentials').item.json.shop_domain }}/admin/api/2024-10/graphql.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{{ $('Build GraphQL Deletion Mutation').item.json.mutation }}\"\n}",
+        "options": {}
+      },
+      "id": "f6905e39-aa7e-42ad-b337-7c7e3430a773",
+      "name": "Execute Batch Deletion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process deletion results and count successes/failures\nconst data = $input.item.json.data;\nconst batchNumber = $('Build GraphQL Deletion Mutation').item.json.batch_number;\nconst totalBatches = $('Build GraphQL Deletion Mutation').item.json.total_batches;\nconst productsInBatch = $('Build GraphQL Deletion Mutation').item.json.products_in_batch;\n\nlet successCount = 0;\nlet failureCount = 0;\nconst errors = [];\n\n// Count successful and failed deletions\nObject.keys(data).forEach(key => {\n  if (data[key].deletedProductId) {\n    successCount++;\n  } else if (data[key].userErrors && data[key].userErrors.length > 0) {\n    failureCount++;\n    errors.push({\n      operation: key,\n      errors: data[key].userErrors\n    });\n  }\n});\n\nreturn [{\n  json: {\n    batch_number: batchNumber,\n    total_batches: totalBatches,\n    products_in_batch: productsInBatch,\n    successful_deletions: successCount,\n    failed_deletions: failureCount,\n    errors: errors,\n    is_last_batch: batchNumber === totalBatches\n  }\n}];"
+      },
+      "id": "c289e384-a20b-4664-88dc-c4dc3484c3d5",
+      "name": "Process Batch Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.is_last_batch }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "221b54cd-d10d-4452-a33e-62fe36e9ed67",
+      "name": "Check if Last Batch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate results from all batches\nconst allBatches = $input.all();\nlet totalSuccessful = 0;\nlet totalFailed = 0;\nlet totalBatches = 0;\nconst allErrors = [];\n\nallBatches.forEach(batch => {\n  totalSuccessful += batch.json.successful_deletions;\n  totalFailed += batch.json.failed_deletions;\n  totalBatches = batch.json.total_batches;\n  if (batch.json.errors.length > 0) {\n    allErrors.push(...batch.json.errors);\n  }\n});\n\nreturn [{\n  json: {\n    summary: {\n      total_batches_processed: totalBatches,\n      total_products_deleted: totalSuccessful,\n      total_deletion_failures: totalFailed,\n      total_errors: allErrors.length,\n      cutoff_date: $('Calculate Cutoff Date').item.json.formatted_date\n    },\n    errors: allErrors\n  }\n}];"
+      },
+      "id": "cb6f4720-c093-4eb0-992d-fa005eecd3d3",
+      "name": "Aggregate Final Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "efcd2760-a6f2-49d7-ba23-4e28af40feb9",
+      "name": "Final Success Notification",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a89c5d6d-93b0-46b3-b67a-f482a7349818",
+      "name": "Batch Progress Notification",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "8bcd1d0b-4d92-4253-b50e-5bc76d05a708",
+      "name": "No Products Found",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        -1540,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://https://j4zewh-kg.myshopify.com/admin/api/2024-10/graphql.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query {\\n    shop {\\n      name\\n      myshopifyDomain\\n      plan {\\n        displayName\\n      }\\n    }\\n  }\"\n}",
+        "options": {}
+      },
+      "id": "f985c80b-4d3b-4976-b5ec-c9575b8a9abe",
+      "name": "Test Shopify Connection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1940,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YxIKMl61qSMtLh2X",
+          "name": "upStash-redis"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Calculate Cutoff Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Cutoff Date": {
+      "main": [
+        [
+          {
+            "node": "Fetch Products Created Before Last Week",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Test Shopify Connection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Products Created Before Last Week": {
+      "main": [
+        []
+      ]
+    },
+    "Check if Products Found": {
+      "main": [
+        [
+          {
+            "node": "Prepare Deletion Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Products Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Deletion Batches": {
+      "main": [
+        [
+          {
+            "node": "Process Batches Sequentially",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Batches Sequentially": {
+      "main": [
+        [
+          {
+            "node": "Build GraphQL Deletion Mutation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build GraphQL Deletion Mutation": {
+      "main": [
+        [
+          {
+            "node": "Execute Batch Deletion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Batch Deletion": {
+      "main": [
+        [
+          {
+            "node": "Process Batch Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Batch Results": {
+      "main": [
+        [
+          {
+            "node": "Check if Last Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Last Batch": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Final Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Batch Progress Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Final Results": {
+      "main": [
+        [
+          {
+            "node": "Final Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "41dd8a66-e6c1-4e84-8089-6bcec2602699",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-07-20T16:00:37.661Z",
+      "createdAt": "2025-07-20T16:00:37.661Z",
+      "role": "workflow:owner",
+      "workflowId": "MTItwmRNg9iHqy1Q",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
