@@ -1,0 +1,1183 @@
+{
+  "updatedAt": "2025-11-10T07:04:46.621Z",
+  "createdAt": "2025-09-09T07:44:38.902Z",
+  "id": "llY1ozJ1ROdrEnMH",
+  "name": "05-Hermes-Prod-Printify",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        80
+      ],
+      "id": "4a67e186-2019-4599-adc4-f403cd6a350b",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/pages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"page\": {\n    \"title\": \"{{ $json.petname }}'\", \n    \"handle\": \"{{ $json.page_handle }}\",       \n    \"body_html\": \"<p>Gallery page for {{ $json.petname }}. Description managed in GemPages.</p>\", \n    \"template_suffix\": \"gp-template-569295308895290348\", \n    \"published\": true,\n    \"metafields\": [\n      {\n        \"key\": \"pet_name\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.petname }}\", \n        \"type\": \"single_line_text_field\" \n      },\n      {\n        \"key\": \"gallery_description\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.gallery_description }}\", \n        \"type\": \"multi_line_text_field\" \n      },\n      {\n        \"key\": \"collection_ids\", \n        \"namespace\": \"custom\", \n        \"value\": \"{{ $json.collection_handles }}\", \n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "d0d59de6-493b-474e-ba13-7dd7c45b40aa",
+      "name": "Create Gallery Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1568,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pageResponse = $('Create Gallery Page').all()[0].json;\nconst config = $('Set Configuration').all()[0].json;\nconst processedData = $('Process Collections').all()[0].json;\n\n// Check if we have a successful response (201 Created)\nif (pageResponse.statusCode === 201 && pageResponse.body && pageResponse.body.page) {\n  const page = pageResponse.body.page;\n  const pageUrl = `https://${config.shopify_store_url.replace('.myshopify.com', '')}.myshopify.com/pages/${page.handle}`;\n  \n  return {\n    success: true,\n    page_id: page.id,\n    page_handle: page.handle,\n    page_url: pageUrl,\n    admin_url: `https://${config.shopify_store_url}/admin/pages/${page.id}`,\n    collections_included: processedData.collections.map(c => ({\n      handle: c.handle,\n      title: c.title,\n      products_count: c.products_count\n    })),\n    gallery_title: processedData.gallery_title,\n    metafields_set: [\n      'custom.gallery_title',\n      'custom.gallery_description',\n      'custom.collection_ids'\n    ],\n    created_at: new Date().toISOString()\n  };\n} else {\n  throw new Error(`Failed to create page: Status ${pageResponse.statusCode} - ${pageResponse.statusMessage}`);\n}"
+      },
+      "id": "cf4fe1c6-1483-47a1-8732-6e75a00711d4",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $input.item.json;\n\n// ✅ Ensure we have a valid collectionHandlesString\nif (!config.collectionHandlesString || typeof config.collectionHandlesString !== 'string') {\n  throw new Error(\"Missing or invalid 'collectionHandlesString'\");\n}\n\n// ✅ Build minimal fake 'collections' array just from handles\nconst handles = config.collectionHandlesString\n  .split(',')\n  .map(h => h.trim())\n  .filter(h => h.length > 0);\n\n// You can optionally attach placeholder metadata if needed later\nconst collections = handles.map(h => ({\n  handle: h,\n  title: h.replace(/-/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()), // e.g., \\\"sammy-spa-day\\\" → \\\"Sammy Spa Day\\\"\n  products_count: 1\n}));\n\n// --- CORRECTED: Include petname and ensure gallery_description is passed through ---\nconst pageData = {\n  collections,\n  collection_handles: handles.join(','),\n  gallery_title: config.gallery_title || 'My Art Gallery', // Keep this for compatibility if needed later, but API call ignores it\n  gallery_description: config.gallery_description || 'Enjoy your custom artwork!', // Pass through description from input\n  page_handle: 'myfurryprints-' + Date.now().toString().slice(-4),\n  petname: config.petname // <--- ADDED: Include petname from input\n};\n\nreturn [{ json: pageData }];"
+      },
+      "id": "a68e2eb8-f6a6-4f4d-a77e-24646a230611",
+      "name": "Process Collections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendTemplate",
+        "templateId": 1,
+        "receipients": "={{ $('Set Configuration').item.json.email + ', support@myfurryprints.com'}}",
+        "additionalFields": {
+          "templateParameters": {
+            "parameterValues": {
+              "parameters": "=registrationUrl={{ $json.page_url }}"
+            }
+          }
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.sendInBlue",
+      "typeVersion": 1,
+      "position": [
+        2288,
+        80
+      ],
+      "id": "0102769c-7492-4cc5-9f7a-d6c5e6ee5f51",
+      "name": "Brevo",
+      "credentials": {
+        "sendInBlueApi": {
+          "id": "iKQewRm9lysjCraU",
+          "name": "Brevo account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "shopify_store_url",
+              "stringValue": "j4zewh-kg.myshopify.com"
+            },
+            {
+              "name": "collection_handles",
+              "stringValue": "={{ $json.collectionHandlesString.toString() }}"
+            },
+            {
+              "name": "email",
+              "stringValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a0e46baa-d3c6-4848-8867-83ad0f681ae1",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        912,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 300,
+        "width": 2300,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "8b08c689-d431-478b-8fa9-329eeb408af9",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node Name: Extract Merged Data\n// Receives the array of items from the Merge node output.\n// Finds and consolidates collection handles string, email, and petname.\n// Outputs a single item with the consolidated data.\n\nconst items = $input.all(); // Get all items from the merge node output\n\n// Initialize variables to store the data we need to extract\nlet collectionHandlesString = '';\nlet email = '';\nlet petname = '';\n\n// Loop through each item produced by the merge node\nitems.forEach(item => {\n  // Check if the current item has the 'collectionHandlesString' property\n  if (item.json && item.json.collectionHandlesString) {\n    collectionHandlesString = item.json.collectionHandlesString;\n    // Optional: Log that we found it\n    console.log('Found collectionHandlesString:', collectionHandlesString);\n  }\n\n  // Check if the current item has the 'email' property (assuming email and petname are in the same item)\n  if (item.json && item.json.email) {\n    email = item.json.email;\n    petname = item.json.petname || ''; // Also get petname from the same item\n    // Optional: Log that we found user data\n    console.log('Found user data (email, petname):', email, petname);\n  }\n\n  // We don't need to process the items with the 'collect' object for this specific task.\n});\n\n// Check if essential data was found (optional but recommended)\nif (!collectionHandlesString || !email || !petname) {\n    console.warn('One or more required fields not found in merge output:', {\n        collectionHandlesString: collectionHandlesString ? 'Found' : 'Not Found',\n        email: email ? 'Found' : 'Not Found',\n        petname: petname ? 'Found' : 'Not Found'\n    });\n    // You might choose to throw an error here if the data is critical,\n    // or return an item indicating failure, or return with empty values.\n    // For now, we proceed with whatever was found.\n}\n\n\n// Return a single item containing the consolidated data\nreturn [{\n  json: {\n    collectionHandlesString: collectionHandlesString,\n    email: email,\n    petname: petname\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        80
+      ],
+      "id": "6414e1a3-6338-47e5-bfc7-8fddaed237c1",
+      "name": "Consolidate Gallery Data1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "f6g7h8i9-j0k1-2l3m-4n5o-p6q7r8s9t0u1",
+              "leftValue": "={{ $('Create Gallery Page').item.json.statusCode }}",
+              "rightValue": 201,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "430133d0-d80b-4b4b-8991-ee8e69a02a17",
+      "name": "Validate Gallery Creation1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Debug what's being passed to Create Gallery Page\nconst passedData = { ...items[0].json };\nreturn [\n  {\n    json: {\n      ...passedData,\n      debug_info: {\n        time: new Date().toISOString(),\n        gallery_title_type: typeof passedData.gallery_title,\n        page_handle_type: typeof passedData.page_handle, \n      }\n    }\n  }\n];"
+      },
+      "id": "015ef820-398a-4ee2-8bc8-23777ec28dde",
+      "name": "Debug Gallery Data1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); // Get all input items\nconst handles = []; // To collect collection handles\n\n// Extract from the first item (where metadata like email, petname, etc. are stored)\nconst firstItem = items[0]?.json || {};\nconst email = firstItem.email || '';\nconst petname = firstItem.petname || '';\nconst petKind = firstItem.petKind || '';\nconst sessionId = firstItem.session_id || '';\nconst customerName = firstItem.customer_name || '';\n\n// Loop through each item to extract collection handles\nitems.forEach(item => {\n  if (item.json && item.json.custom_collection && item.json.custom_collection.handle) {\n    handles.push(item.json.custom_collection.handle);\n  }\n});\n\n// Join all collected handles into a comma-separated string\nconst collectionHandlesString = handles.join(',');\n\n// Return a single output item with all requested fields\nreturn [{\n  json: {\n    email,\n    petname,\n    petKind,\n    sessionId,\n    customerName,\n    collectionHandlesString\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        80
+      ],
+      "id": "4c103b62-ac3b-41f7-ba77-89e542ee8b92",
+      "name": "extracting handle1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/del/processing_lock",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        288
+      ],
+      "id": "60c383cc-19e2-4ad0-ad2d-bf11584dba65",
+      "name": "ClearProcessingLock",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://honest-ghoul-37248.upstash.io/llen/myfurryprints_queue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2720,
+        288
+      ],
+      "id": "c4335802-94fd-474a-8a2e-3ed3e1b7426a",
+      "name": "CheckQueueForMore",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OU4p8zTKeY9k8OYC",
+          "name": "Upstash_new"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7fd4bd14-be92-42ba-991c-009c111e9871",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2912,
+        288
+      ],
+      "id": "2974b34f-3f8c-48b7-9cbc-22a371fefb94",
+      "name": "IfQueueHasJobs"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "IZs64ETsRU2JDDNi",
+          "mode": "list",
+          "cachedResultName": "01-Hagrid-Prod-Printify"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3152,
+        288
+      ],
+      "id": "c9852418-0c19-4739-9164-2dc3af5ae2ae",
+      "name": "Execute Workflow"
+    },
+    {
+      "parameters": {
+        "content": "Clears the processing lock, checks for jobs in the queue.\nIf job exists, returns to 01Hagrid and next submission gets executed",
+        "height": 120
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2768,
+        464
+      ],
+      "id": "9d6f058f-6a09-4f75-a768-16f862f43cd9",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "extracting handle1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gallery Page": {
+      "main": [
+        [
+          {
+            "node": "Validate Gallery Creation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Brevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Collections": {
+      "main": [
+        [
+          {
+            "node": "Debug Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brevo": {
+      "main": [
+        [
+          {
+            "node": "ClearProcessingLock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {
+            "node": "Process Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Set Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Gallery Creation1": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Gallery Data1": {
+      "main": [
+        [
+          {
+            "node": "Create Gallery Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extracting handle1": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Gallery Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ClearProcessingLock": {
+      "main": [
+        [
+          {
+            "node": "CheckQueueForMore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckQueueForMore": {
+      "main": [
+        [
+          {
+            "node": "IfQueueHasJobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IfQueueHasJobs": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "customer_name": "Ameena K",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "petGender": "Female",
+          "phoneModel": "Google Pixel 9 Pro"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "b8b42663b0bc67354617c8b4b22f3c5a",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "b299d6c84fe0890881a639bf34fc80c5bc666445",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 207979,
+          "type": "upload",
+          "etag": "ed3fcc3a4738494dbda4192db236a2cb",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt1"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "60803c212bb8e42eb6af403affc916c8",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "7719e315278f6193ed59e8925f3681f55597c86b",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 194813,
+          "type": "upload",
+          "etag": "20c0ce05e502b0fb52df81038edb1e4f",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt2"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "e07129a54dfbe0e609cd2d95bd583e84",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "7e6d2de8e62d2e76ed6a964ba165ecf64a0c7987",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 272310,
+          "type": "upload",
+          "etag": "18d0f72abcf922d7d9258d330f59ce4b",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt3"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "ff4fb05f3e7cad1ed30a430f878ee87e",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "700739b945319bff4e89ad3d51b3a07168c070d4",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 242731,
+          "type": "upload",
+          "etag": "dc3c5ffe06f8e9805190e0ba43b4fd75",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 4,
+          "theme_name": "Harry Petter",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt4",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt4"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "e543c21ed517631577ef72019519241a",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "9054aa3d9e47066487bca7d8e4faed337068f8f7",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 212542,
+          "type": "upload",
+          "etag": "9b69f988c7ceb894fa9e1d500ccb30e5",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt5"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "a56d50f6864ccfae44f23b41b40248b4",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "209b097efb74c764c6ff893eb6eef595e0f6a71c",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 185516,
+          "type": "upload",
+          "etag": "2e551ce7e07358b57de7e96247d594ea",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt6"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "b813276a3447a14324501e4fc55dfdae",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "59bc5cac39c99cd6c7f042635102bee89b22cd4f",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 221387,
+          "type": "upload",
+          "etag": "81591bdbb13f8a074a5c0a9a299cbb56",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 7,
+          "theme_name": "Morning Coffee",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt7"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "64db7ae4974cddee69ef7a98d7ff89ed",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8",
+          "version": 1762701225,
+          "version_id": "a695b6d882b285b76daab56ae9c7ae6c",
+          "signature": "02c6217db3f81e183e979bfa8a6f5bff641ace44",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:45Z",
+          "tags": [],
+          "bytes": 405849,
+          "type": "upload",
+          "etag": "0bb26fc66b5170a8fee794c7e926702a",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701225/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701225/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 8,
+          "theme_name": "Anime Style",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701225/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt8"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "ef00215bf8f7ef95b8ce6520b7a3c305",
+          "public_id": "6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9",
+          "version": 1762701224,
+          "version_id": "2c5b805d8323b6e5adc1e7d47ce96a0a",
+          "signature": "186610e5bfed0bc46fe91c04f45bba29b3920e5a",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-11-09T15:13:44Z",
+          "tags": [],
+          "bytes": 292390,
+          "type": "upload",
+          "etag": "b62c83c3570b317dbd0eb1f8e52be9e5",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9.jpg",
+          "asset_folder": "6910af29c2f5a804cf04ffe7",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "6910af29c2f5a804cf04ffe7",
+          "email": "ameena.k@gauger.in",
+          "petname": "Test Sassy",
+          "petKind": "Dog",
+          "customer_name": "Ameena K",
+          "promptIndex": 9,
+          "theme_name": "Shopping Spree",
+          "customFilename": "6910af29c2f5a804cf04ffe7_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1762701224/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/6910af29c2f5a804cf04ffe7/6910af29c2f5a804cf04ffe7_prompt9"
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337620820,
+            "handle": "test-sassy-spadaydeluxe-cf04ffe7",
+            "title": "Test Sassy Spa Day Deluxe",
+            "updated_at": "2025-11-09T15:13:51+00:00",
+            "body_html": "<p>Custom Spa Day Deluxe artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337620820",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Spa Day Deluxe Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt1.jpg?v=1762701231"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337424212,
+            "handle": "test-sassy-midnightsnack-cf04ffe7",
+            "title": "Test Sassy Midnight Snack",
+            "updated_at": "2025-11-09T15:13:51+00:00",
+            "body_html": "<p>Custom Midnight Snack artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337424212",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Midnight Snack Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt2.jpg?v=1762701231"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337456980,
+            "handle": "test-sassy-victorianportrait-cf04ffe7",
+            "title": "Test Sassy Victorian Portrait",
+            "updated_at": "2025-11-09T15:13:51+00:00",
+            "body_html": "<p>Custom Victorian Portrait artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337456980",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Victorian Portrait Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt3.jpg?v=1762701231"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337489748,
+            "handle": "test-sassy-harrypetter-cf04ffe7",
+            "title": "Test Sassy Harry Petter",
+            "updated_at": "2025-11-09T15:13:50+00:00",
+            "body_html": "<p>Custom Harry Petter artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337489748",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Harry Petter Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt4.jpg?v=1762701230"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337555284,
+            "handle": "test-sassy-corporatepet-cf04ffe7",
+            "title": "Test Sassy Corporate Pet",
+            "updated_at": "2025-11-09T15:13:50+00:00",
+            "body_html": "<p>Custom Corporate Pet artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337555284",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Corporate Pet Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt5.jpg?v=1762701230"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337522516,
+            "handle": "test-sassy-homeyoga-cf04ffe7",
+            "title": "Test Sassy Home Yoga",
+            "updated_at": "2025-11-09T15:13:50+00:00",
+            "body_html": "<p>Custom Home Yoga artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337522516",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Home Yoga Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt6.jpg?v=1762701230"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337686356,
+            "handle": "test-sassy-morningcoffee-cf04ffe7",
+            "title": "Test Sassy Morning Coffee",
+            "updated_at": "2025-11-09T15:13:51+00:00",
+            "body_html": "<p>Custom Morning Coffee artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337686356",
+            "image": {
+              "created_at": "2025-11-09T15:13:50+00:00",
+              "alt": "Test Sassy Morning Coffee Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt7.jpg?v=1762701231"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337588052,
+            "handle": "test-sassy-animestyle-cf04ffe7",
+            "title": "Test Sassy Anime Style",
+            "updated_at": "2025-11-09T15:13:51+00:00",
+            "body_html": "<p>Custom Anime Style artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337588052",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Anime Style Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt8.jpg?v=1762701231"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 693337653588,
+            "handle": "test-sassy-shoppingspree-cf04ffe7",
+            "title": "Test Sassy Shopping Spree",
+            "updated_at": "2025-11-09T15:13:51+00:00",
+            "body_html": "<p>Custom Shopping Spree artwork featuring Test Sassy. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K (ameena.k@gauger.in)</p>",
+            "published_at": "2025-11-09T15:13:48+00:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/693337653588",
+            "image": {
+              "created_at": "2025-11-09T15:13:49+00:00",
+              "alt": "Test Sassy Shopping Spree Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/6910af29c2f5a804cf04ffe7_prompt9.jpg?v=1762701231"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "151f261d-74d8-4513-89ab-8a47b54fd7ba",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-09-09T07:44:38.902Z",
+      "createdAt": "2025-09-09T07:44:38.902Z",
+      "role": "workflow:owner",
+      "workflowId": "llY1ozJ1ROdrEnMH",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-07-16T08:16:44.235Z",
+      "createdAt": "2025-07-16T08:16:44.235Z",
+      "id": "llHNDAkMynWsjGrL",
+      "name": "stable"
+    },
+    {
+      "updatedAt": "2025-07-16T08:16:55.035Z",
+      "createdAt": "2025-07-16T08:16:55.035Z",
+      "id": "HpZuiTbFKrPkyXWu",
+      "name": "production"
+    },
+    {
+      "updatedAt": "2025-07-23T05:50:47.125Z",
+      "createdAt": "2025-07-23T05:50:47.125Z",
+      "id": "35DLj8FhqJbXBz8P",
+      "name": "printify"
+    }
+  ],
+  "activeVersion": null
+}
