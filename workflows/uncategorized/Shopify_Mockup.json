@@ -1,0 +1,245 @@
+{
+  "updatedAt": "2025-08-19T10:56:53.444Z",
+  "createdAt": "2025-08-19T09:13:52.830Z",
+  "id": "ANJY822s8DqXxfuw",
+  "name": "Shopify_Mockup",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "",
+        "height": 544,
+        "width": 1696,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        464
+      ],
+      "id": "768e2c6b-3cac-4d20-958d-ea2a01420974",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"productId\": \"gid://shopify/Product/12199462633812\",\n  \"imageUrls\": [\n    \"https://images.printify.com/mockup/68a30b6d58993f6b4a050237/18542/92584/template-premium-cotton-unisex-t-shirt.jpg?camera_label=lifestyle\",\n    \"https://images.printify.com/mockup/68a30b6d58993f6b4a050237/18542/102044/template-premium-cotton-unisex-t-shirt.jpg?camera_label=front-2\",\n    \"https://images.printify.com/mockup/68a30b6d58993f6b4a050237/18542/102050/template-premium-cotton-unisex-t-shirt.jpg?camera_label=size-chart\"\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1632,
+        -1312
+      ],
+      "id": "7af8cd3b-f986-4fb4-8fa9-5693bf15562d",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1872,
+        -1328
+      ],
+      "id": "95bd2a00-3c3d-4704-934c-44deb3fc6393",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the incoming data\nconst imageUrls = $input.item.json.imageUrls;\nconst productId = $input.item.json.productId;\n\n// Format the media array\nconst media = imageUrls.map(url => ({\n  originalSource: url,\n  mediaContentType: \"IMAGE\"\n}));\n\n// Return an object with two separate top-level keys: 'input' and 'media'\nreturn [{\n  json: {\n    input: {\n      id: productId\n    },\n    media: media\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1456,
+        -1312
+      ],
+      "id": "488ba1b1-686b-42c3-81c6-a1f1453a7a6c",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2024-04/graphql.json",
+        "query": "mutation productUpdate($input: ProductInput!, $media: [CreateMediaInput!]) {\n  productUpdate(input: $input, media: $media) {\n    product {\n      id\n      media(first: 10) {\n        nodes {\n          alt\n          mediaContentType\n          preview {\n            status\n          }\n        }\n      }\n    }\n    userErrors {\n      field\n      message\n    }\n  }\n}",
+        "variables": "={{ $json }}",
+        "responseFormat": "string"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        -1200,
+        -1296
+      ],
+      "id": "e24c22dd-22d4-4d41-8c04-4c6386942585",
+      "name": "Shopify GraphQL (Image Upload)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "544ee686-e215-49c8-a8eb-d4146ef3988a",
+              "name": "gqlVariables",
+              "value": "=={\n  \"input\": {\n    \"id\": $json.product,\n    \"media\": $json.media\n  }\n}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1264,
+        -1552
+      ],
+      "id": "71896310-72e2-460e-b835-93c7f0c9c4be",
+      "name": "Prepare GraphQL Variables"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"product\": {{ $json.product }},\n  \"media\": {{ $json.media }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1680,
+        -1824
+      ],
+      "id": "6dca4db9-0906-4eb5-aefc-ace9ceeec314",
+      "name": "GraphQL Variables"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Shopify GraphQL (Image Upload)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare GraphQL Variables": {
+      "main": [
+        []
+      ]
+    },
+    "GraphQL Variables": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "0e7f312b-4482-4d48-89b0-910b34a1b0ab",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-08-19T09:13:52.830Z",
+      "createdAt": "2025-08-19T09:13:52.830Z",
+      "role": "workflow:owner",
+      "workflowId": "ANJY822s8DqXxfuw",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}
