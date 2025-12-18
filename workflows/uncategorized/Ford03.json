@@ -1,0 +1,2523 @@
+{
+  "updatedAt": "2025-06-30T11:43:40.368Z",
+  "createdAt": "2025-06-18T05:05:08.495Z",
+  "id": "L6GMKngaWln4M0jb",
+  "name": "Ford03",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1300,
+        80
+      ],
+      "id": "7818930d-2648-4cb2-b6be-c391236bbb83",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        80
+      ],
+      "id": "818110de-4d48-443e-8bef-2ae934cab80a",
+      "name": "Split_Product_Types"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.collection_image_url }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -820,
+        80
+      ],
+      "id": "887f9afe-8fa8-458a-8f9c-4b598e103248",
+      "name": "Create_shopify_collection1",
+      "retryOnFail": false,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ecommerce.gelatoapis.com/v1/templates/{{ $json.gelato_template_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        100
+      ],
+      "id": "8b6fc952-798f-4803-898a-5d26b959e596",
+      "name": "Get_template_varients1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vWLCrNzEd4XJ6ADx",
+          "name": "Gelato"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fix the Process_Template_Variants node - position [1600, 160]:\nconst item = $input.item;\n\n// Extract original data\nconst originalData = {\n  shopify_collection_id: item.json.shopify_collection_id || $('Map_Gelato_Templates1').item.json.shopify_collection_id,\n  collection_handle: item.json.collection_handle || $('Map_Gelato_Templates1').item.json.collection_handle,\n  collection_title: item.json.collection_title || $('Map_Gelato_Templates1').item.json.collection_title,\n  session_id: item.json.session_id || $('Map_Gelato_Templates1').item.json.session_id,\n  email: item.json.email || $('Map_Gelato_Templates1').item.json.email,\n  petname: item.json.petname || $('Map_Gelato_Templates1').item.json.petname,\n  customer_name: item.json.customer_name || $('Map_Gelato_Templates1').item.json.customer_name,\n  promptIndex: item.json.promptIndex || $('Map_Gelato_Templates1').item.json.promptIndex,\n  theme_name: item.json.theme_name || $('Map_Gelato_Templates1').item.json.theme_name,\n  clothing_url: item.json.clothing_url || $('Map_Gelato_Templates1').item.json.clothing_url,\n  other_url: item.json.other_url || $('Map_Gelato_Templates1').item.json.other_url,\n  product_type: item.json.product_type || $('Map_Gelato_Templates1').item.json.product_type,\n  image_url: item.json.image_url || $('Map_Gelato_Templates1').item.json.image_url,\n  gelato_template_id: item.json.gelato_template_id || $('Map_Gelato_Templates1').item.json.gelato_template_id,\n  template_name: item.json.template_name || $('Map_Gelato_Templates1').item.json.template_name,\n  product_title: item.json.product_title || $('Map_Gelato_Templates1').item.json.product_title,\n  product_sku: item.json.product_sku || $('Map_Gelato_Templates1').item.json.product_sku\n};\n\n// Get template data from the API response\nconst templateResponse = item.json;\nconst variants = templateResponse.variants || [];\n\nconsole.log(`=== PROCESSING TEMPLATE ${templateResponse.id} ===`);\nconsole.log(`Template Name: ${templateResponse.name || templateResponse.title}`);\nconsole.log(`Total variants found: ${variants.length}`);\nconsole.log(`Image URL: ${originalData.image_url}`);\n\n// If no variants found, return error\nif (variants.length === 0) {\n  return [{\n    json: {\n      error: \"No variants found for template\",\n      template_id: templateResponse.id,\n      gelato_template_id: originalData.gelato_template_id,\n      original_data: originalData\n    }\n  }];\n}\n\n// FIXED: Create ALL variants in a single product request\nconst variantsArray = [];\n\nvariants.forEach((variant, variantIndex) => {\n  console.log(`Processing variant ${variantIndex + 1}/${variants.length}: ${variant.title}`);\n\n  // Get image placeholders for this variant\n  const imagePlaceholders = variant.imagePlaceholders || [];\n\n  // Find the main image placeholder\n  // Prioritize 'front', then names including 'front' or 'image', fallback to the first placeholder\n  const mainImagePlaceholder = imagePlaceholders.find(p =>\n    p.printArea === \"front\"\n  ) || imagePlaceholders.find(p =>\n     p.name && (p.name.toLowerCase().includes(\"front\") || p.name.toLowerCase().includes(\"image\"))\n  ) || imagePlaceholders[0];\n\n\n  if (mainImagePlaceholder) {\n    variantsArray.push({\n      templateVariantId: variant.id,\n      imagePlaceholders: [\n        {\n          name: mainImagePlaceholder.name,\n          fileUrl: originalData.image_url\n        }\n      ]\n    });\n    console.log(`✓ Added variant ${variantIndex + 1}: ${variant.title} with placeholder: ${mainImagePlaceholder.name}`);\n    console.log(`✓ Image URL: ${originalData.image_url}`);\n  } else {\n    console.log(`✗ No image placeholder found for variant: ${variant.title}`);\n    console.log(`Available placeholders:`, imagePlaceholders.map(p => p.name));\n    // Optionally, you might want to skip this variant or return an error\n    // For now, we just log and skip adding this variant to the variantsArray\n  }\n});\n\nconsole.log(`=== FINAL VARIANTS ARRAY ===`);\nconsole.log(`Total variants to create: ${variantsArray.length}`);\nconsole.log(`Variants array:`, JSON.stringify(variantsArray, null, 2));\n\n// CORRECTED: Return a SINGLE item with ALL variants for the product,\n// putting the data needed for the API request body directly at the top level.\nreturn [{\n  json: {\n    // Gelato API Request Body fields\n    templateId: originalData.gelato_template_id, // Directly accessible as item.json.templateId in the next node\n    title: `${originalData.theme_name} - ${originalData.template_name}`, // Directly accessible as item.json.title\n  description: templateResponse.description || `<p>Custom ${originalData.theme_name} artwork featuring ${originalData.petname}. High-quality print-on-demand product perfect for pet lovers.</p>`,\n\n    isVisibleInTheOnlineStore: true,\n    salesChannels: [\"web\"],\n    variants: variantsArray, // Directly accessible as item.json.variants\n    tags: [originalData.petname, originalData.theme_name, \"custom-pet-art\"],\n    productType: \"Custom Pet Artwork\",\n    vendor: \"Gauger Pet Art\",\n\n    // All original data (keep this as well for context in later nodes if needed)\n    ...originalData\n    // Note: templateId, title, description are technically duplicated here\n    // but the ones defined explicitly above will take precedence in the object spread.\n    // This is fine and keeps all originalData available.\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        100
+      ],
+      "id": "620aa40c-4ab1-4773-afd9-055aaef4fe6b",
+      "name": "Process_Template_Variants1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst outputItems = [];\n\n// Your actual Gelato template IDs\nconst gelatoTemplates = {\n  \"clothing\": [\n    { id: \"c0283bcf-5c48-4aac-b1cc-c082081a510f\", name: \"Premium Cotton Unisex Crewneck T-shirt\" }\n  ],\n  \"other\": [\n    { id: \"e711b36f-06d3-4b86-89d8-508d0ceae3f2\", name: \"Samsung Case - Tough\" },\n    // { id: \"1f301028-725e-4ea8-902a-c05176a9ed8b\", name: \"iPhone Case - Tough\" },\n    // { id: \"3d04b8e4-7cc1-4447-971d-c1e43c773863\", name: \"Classic Tote Bag\" },\n    // { id: \"a6f883e1-6e9c-4d8b-bd34-c97066998b4e\", name: \"Magic Ceramic Mug\" },\n    // { id: \"cd792777-3e65-4d97-85f3-5aee74bbc1b4\", name: \"Ceramic Mug with Color Inside\" },\n    // { id: \"d60afa4b-cd4b-4605-a3b8-0db0cd66a3d7\", name: \"Acrylic Print\" },\n    // { id: \"107d744d-df29-46f1-8a82-289f27be9e03\", name: \"Aluminum Print\" },\n    //  { id: \"c0c6fd6c-f1c1-41aa-a0f4-f772640e8cbf\", name: \"Canvas 2cm thick\" },\n    // { id: \"aa2f86bc-ae2b-4a17-9be5-bd22620d37ca\", name: \"Premium Wooden Framed Poster\" }\n  ]\n};\n\n// Function to extract data from collection\nfunction extractDataFromCollection(collection) {\n  console.log('=== EXTRACTING DATA FROM COLLECTION ===');\n  console.log('Collection ID:', collection.id);\n  console.log('Collection Title:', collection.title);\n  console.log('Collection Handle:', collection.handle);\n  console.log('Collection Image URL:', collection.image?.src);\n  \n  // Initialize variables\n  let session_id = \"\";\n  let promptIndex = 1;\n  \n  // FIXED: Extract from Shopify CDN URLs\n  if (collection.image && collection.image.src) {\n    console.log('Attempting to extract from image URL:', collection.image.src);\n    \n    // Updated regex for Shopify CDN URLs - try multiple patterns\n    let urlMatch = collection.image.src.match(/collections\\/([a-f0-9]+)_prompt(\\d+)\\.(png|jpg|jpeg|webp)/);\n    if (!urlMatch) {\n      // Try without collections/ prefix\n      urlMatch = collection.image.src.match(/([a-f0-9]+)_prompt(\\d+)\\.(png|jpg|jpeg|webp)/);\n    }\n    if (!urlMatch) {\n      // Try without file extension\n      urlMatch = collection.image.src.match(/([a-f0-9]+)_prompt(\\d+)/);\n    }\n    \n    if (urlMatch) {\n      session_id = urlMatch[1];\n      promptIndex = parseInt(urlMatch[2]);\n      console.log('✓ Successfully extracted from URL - Session ID:', session_id, 'Prompt Index:', promptIndex);\n    } else {\n      console.log('❌ Failed to extract from image URL');\n    }\n  }\n  \n  // Fallback 1: Extract session_id from collection handle\n  if (!session_id) {\n    const handleMatch = collection.handle.match(/([a-f0-9]+)$/);\n    if (handleMatch) {\n      session_id = handleMatch[1];\n      console.log('✓ Extracted session_id from handle:', session_id);\n    }\n  }\n  \n  // Fallback 2: Map theme names to prompt indices\n  const titleParts = collection.title.split(' ');\n  const petname = titleParts[0];\n  const theme_name = titleParts.slice(1).join(' ');\n  \n  // If we still don't have promptIndex, map from theme\n  if (promptIndex === 1 && theme_name !== \"Spa Day\") {\n    const themeToPromptIndex = {\n      \"Spa Day\": 1,\n      \"Midnight Snack\": 2,\n      \"Barbecue Chef\": 3\n    };\n    \n    promptIndex = themeToPromptIndex[theme_name] || 1;\n    console.log('✓ Mapped theme to prompt index:', theme_name, '->', promptIndex);\n  }\n  \n  // Extract customer info from body_html\n  let customer_name = \"\";\n  let email = \"\";\n  if (collection.body_html) {\n    const bodyMatch = collection.body_html.match(/Created for (.+?) \\((.+?)\\)/);\n    if (bodyMatch) {\n      customer_name = bodyMatch[1];\n      email = bodyMatch[2];\n    }\n  }\n  \n  // Generate the correct URLs using the extracted data\n  const cloudName = \"myfurryprints\";\n  const maskId = \"Mask3larger_jpm63l\";\n  const publicId = `${session_id}/${session_id}_prompt${promptIndex}`;\n  \n  const clothing_url = `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/l_${maskId},w_4000,fl_cutter/${publicId}`;\n  const other_url = `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/${publicId}`;\n  \n  console.log('Final Extracted Data:');\n  console.log('  Session ID:', session_id);\n  console.log('  Prompt Index:', promptIndex);\n  console.log('  Pet Name:', petname);\n  console.log('  Theme Name:', theme_name);\n  console.log('  Customer Name:', customer_name);\n  console.log('  Email:', email);\n  console.log('  Clothing URL:', clothing_url);\n  console.log('  Other URL:', other_url);\n  \n  return {\n    session_id: session_id,\n    email: email,\n    petname: petname,\n    customer_name: customer_name,\n    promptIndex: promptIndex,\n    theme_name: theme_name,\n    clothing_url: clothing_url,\n    other_url: other_url\n  };\n}\n\n// Process each collection response\nitems.forEach((item, itemIndex) => {\n  const collection = item.json.custom_collection;\n  \n  if (collection && collection.id) {\n    console.log(`\\n=== PROCESSING COLLECTION ${itemIndex + 1} ===`);\n    \n    // Extract data from collection\n    const originalData = extractDataFromCollection(collection);\n    \n    // Create clothing products\n    gelatoTemplates.clothing.forEach((template, templateIndex) => {\n      const productData = {\n        json: {\n          // Collection data from Shopify response\n          shopify_collection_id: collection.id,\n          collection_handle: collection.handle,\n          collection_title: collection.title,\n          \n          // Extracted customer data\n          session_id: originalData.session_id,\n          email: originalData.email,\n          petname: originalData.petname,\n          customer_name: originalData.customer_name,\n          promptIndex: originalData.promptIndex,\n          theme_name: originalData.theme_name,\n          \n          // Product data with THEME-SPECIFIC image\n          product_type: \"clothing\",\n          image_url: originalData.clothing_url,\n          gelato_template_id: template.id,\n          template_name: template.name,\n          product_title:  `${originalData.theme_name} - ${template.name}`,\n          product_sku: `${originalData.session_id}-${originalData.promptIndex}-${template.id.slice(-8)}`\n        }\n      };\n      \n      outputItems.push(productData);\n      \n      console.log(`✓ Created clothing product: ${originalData.petname} ${originalData.theme_name} - ${template.name}`);\n      console.log(`  Prompt Index: ${originalData.promptIndex}`);\n      console.log(`  Image URL: ${originalData.clothing_url}`);\n    });\n    \n    // Create other products\n    gelatoTemplates.other.forEach((template, templateIndex) => {\n      const productData = {\n        json: {\n          // Collection data from Shopify response\n          shopify_collection_id: collection.id,\n          collection_handle: collection.handle,\n          collection_title: collection.title,\n          \n          // Extracted customer data\n          session_id: originalData.session_id,\n          email: originalData.email,\n          petname: originalData.petname,\n          customer_name: originalData.customer_name,\n          promptIndex: originalData.promptIndex,\n          theme_name: originalData.theme_name,\n          \n          // Product data with THEME-SPECIFIC image\n          product_type: \"other\",\n          image_url: originalData.other_url,\n          gelato_template_id: template.id,\n          template_name: template.name,\n          product_title: `${originalData.theme_name} - ${template.name}`,\n          product_sku: `${originalData.session_id}-${originalData.promptIndex}-${template.id.slice(-8)}`\n        }\n      };\n      \n      outputItems.push(productData);\n      \n      console.log(`✓ Created other product: ${originalData.petname} ${originalData.theme_name} - ${template.name}`);\n      console.log(`  Prompt Index: ${originalData.promptIndex}`);\n      console.log(`  Image URL: ${originalData.other_url}`);\n    });\n  }\n});\n\nconsole.log('\\n=== FINAL OUTPUT SUMMARY ===');\nconsole.log(`Total products created: ${outputItems.length}`);\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        80
+      ],
+      "id": "c07094e7-e475-4a69-8bac-178cd5503ce5",
+      "name": "Map_Gelato_Templates1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/collects.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"collect\": {\n    \"product_id\": {{$json[\"product_id\"]}},\n    \"collection_id\": {{$json[\"collection_id\"]}}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        640
+      ],
+      "id": "8f91f1d3-ec35-46bb-a9c9-ae29449d4450",
+      "name": "Add_Product_To_Collection",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ecommerce.gelatoapis.com/v1/stores/ce82562a-d6f5-47ab-8c59-632770661164/products:create-from-template",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.requestBodyString }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        100
+      ],
+      "id": "95fa5596-6597-49b1-ad5b-b9b3fa2cbf04",
+      "name": "Create_gelato_products",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vWLCrNzEd4XJ6ADx",
+          "name": "Gelato"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://j4zewh-kg.myshopify.com/admin/api/2023-10/products.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $json.product_title }}"
+            },
+            {
+              "name": "session_id",
+              "value": "={{ $json.session_id_to_match }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        640
+      ],
+      "id": "b1e1d80c-b1ec-48d2-9534-11afd181abb6",
+      "name": "SearchShopifyProduct",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n    // Node: Collect All Products\n    const allItems = $input.all();\n    const shopifyCollectionsMap = new Map(); // Key: \"PetName ThemeName\", Value: { collection_id, handle, title }\n    const productsToProcess = [];\n\n    console.log(`Collect All Products - Received ${allItems.length} items from Merge1.`);\n\n    // --- First Pass: Populate shopifyCollectionsMap from Shopify Collection Items ---\n    allItems.forEach((item, index) => {\n      // Shopify Collection items have collection_id and their title is \"PetName ThemeName\"\n      if (item.json.collection_id && item.json.title && typeof item.json.title === 'string' && !item.json.id) { // !item.json.id helps distinguish from Gelato product\n        const shopifyCollectionTitleKey = item.json.title; // e.g., \"moon Spa Day\"\n        if (!shopifyCollectionsMap.has(shopifyCollectionTitleKey)) {\n          shopifyCollectionsMap.set(shopifyCollectionTitleKey, {\n            collection_id: item.json.collection_id,\n            collection_handle: item.json.handle,\n            original_shopify_collection_title: item.json.title\n          });\n          console.log(`Mapped Shopify Collection: \"${shopifyCollectionTitleKey}\" -> ID: ${item.json.collection_id}`);\n        }\n      }\n    });\n\n    if (shopifyCollectionsMap.size === 0) {\n      console.warn(\"No Shopify collections were identified and mapped from Merge1. Downstream processing will likely fail.\");\n    } else {\n      console.log(`Total Shopify collections mapped: ${shopifyCollectionsMap.size}`);\n      console.log(\"Shopify Collections Map Keys:\", Array.from(shopifyCollectionsMap.keys()));\n    }\n\n    // --- Second Pass: Match Gelato products to Shopify collections ---\n    allItems.forEach((item, index) => {\n      // Gelato product items have an 'id' (Gelato product ID) and 'tags'\n      if (item.json.id && item.json.tags && Array.isArray(item.json.tags) && item.json.tags.length >= 2 && item.json.title && item.json.title.includes(' - ')) {\n        const gelatoProductTitle = item.json.title; // Full title like \"moon Spa Day - Custom Apparel\"\n        const petname = item.json.tags[0];       // e.g., \"moon\"\n        const themeName = item.json.tags[1];     // e.g., \"Spa Day\"\n        \n        const shopifyCollectionTitleKey = `${petname} ${themeName}`; // Construct the key, e.g., \"moon Spa Day\"\n        \n        const collectionData = shopifyCollectionsMap.get(shopifyCollectionTitleKey);\n\n        if (collectionData) {\n          // --- NEW CODE START ---\n  // Find the session_id from the tags. Assumes it's a long hex string.\n  // This is more robust than assuming its position in the array.\n  //const session_id_tag = item.json.tags.find(tag => /^[a-z0-9]{10,}$/i.test(tag));\n const session_id_tag = $input.first().json.tags[3]\n          \n  if (!session_id_tag) {\n      console.warn(`Could not find a session_id tag for product: \"${gelatoProductTitle}\". Skipping.`);\n      // using 'continue' is not allowed in forEach, so we just return to skip this iteration.\n      return; \n  }\n\n          productsToProcess.push({\n            json: {\n              // This is the full Gelato product title, which should also be the Shopify product title after sync\n              product_title_to_search_in_shopify: gelatoProductTitle, \n              \n              // Shopify collection details for adding the product later\n              shopify_collection_id: collectionData.collection_id,\n              shopify_collection_handle: collectionData.collection_handle,\n              shopify_collection_original_title: collectionData.original_shopify_collection_title,\n// We are now confident this is the correct session_id tag\n      session_id_to_match: session_id_tag,\n              // For debugging or context\n              gelato_product_id: item.json.id,\n              derived_petname: petname,\n              derived_themename: themeName,\n              // gelato_product_details: item.json // Uncomment if you need the whole Gelato item\n            }\n          });\n          console.log(`Product \"${gelatoProductTitle}\" (Gelato ID: ${item.json.id}) will be searched in Shopify and added to collection \"${shopifyCollectionTitleKey}\" (Shopify Collection ID: ${collectionData.collection_id})`);\n        } else {\n          console.warn(`No Shopify collection found for Gelato product: \"${gelatoProductTitle}\" (using key: \"${shopifyCollectionTitleKey}\" from tags). This product will be skipped.`);\n        }\n      }\n    });\n    \n    if (productsToProcess.length === 0) {\n      console.warn(\"No Gelato products were successfully matched to Shopify collections. Check product titles/tags and collection titles alignment.\");\n    }\n\n    console.log(`Total products to process (search in Shopify and add to collection): ${productsToProcess.length}`);\n    return productsToProcess;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        620
+      ],
+      "id": "9826b4ff-eaa3-456a-9739-9ffd1c2629d9",
+      "name": "Collect All Products"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eedd32cb-3722-4169-ae9e-b5e0b7114fd9",
+              "name": "collection_id",
+              "value": "={{ $json.custom_collection.id }}",
+              "type": "number"
+            },
+            {
+              "id": "0ea0ee40-d5e9-4980-ad45-35f941a86cb5",
+              "name": "handle",
+              "value": "={{ $json.custom_collection.handle }}",
+              "type": "string"
+            },
+            {
+              "id": "30fe9f3f-53af-4c85-bd1b-e2f489aefefa",
+              "name": "title",
+              "value": "={{ $json.custom_collection.title }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -220,
+        640
+      ],
+      "id": "7637b8d9-62ee-4965-9638-4dc884538703",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -340,
+        80
+      ],
+      "id": "d519582f-528e-4c9d-9826-864a58791d59",
+      "name": "Extract Collection Data"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1160,
+        100
+      ],
+      "id": "9f6a3a92-c1ed-4c49-90af-1da78616a26f",
+      "name": "Wait",
+      "webhookId": "bc09b210-2685-4015-9f1b-7969fe49a94e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentProductData = $input.item.json;\nreturn {\n  json: {\n    product_title: currentProductData.product_title_to_search_in_shopify,\n    shopify_collection_id: currentProductData.shopify_collection_id,\n    \n    // --- ADD THIS LINE ---\n    session_id_to_match: currentProductData.session_id_to_match, // Pass it through\n\n    // Context fields (no changes needed here)\n    original_search_title: currentProductData.product_title_to_search_in_shopify,\n    original_shopify_collection_title: currentProductData.shopify_collection_original_title,\n    gelato_product_id_context: currentProductData.gelato_product_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        640
+      ],
+      "id": "3f3818f6-a42b-4fcf-b668-5e05d8c8d575",
+      "name": "Format Product Search Data"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get the API response from SearchShopifyProduct\nconst shopifyApiResponse = $input.item.json;\n\n// Get the data sent *into* SearchShopifyProduct\nconst dataFromPreviousNode = $('Format Product Search Data').item.json;\n\nlet foundProduct = null;\nconst allFoundProducts = shopifyApiResponse.products || [];\nconst targetSessionId = dataFromPreviousNode.session_id_to_match;\nconst searchedTitle = dataFromPreviousNode.product_title;\n\nconsole.log(`--- Starting Product ID Extraction ---`);\nconsole.log(`Target Session ID: \"${targetSessionId}\"`);\nconsole.log(`Searching for product title: \"${searchedTitle}\"`);\n\nif (!targetSessionId) {\n  console.error(\"CRITICAL ERROR: No session_id was passed to this node. Cannot perform matching. Check the 'Collect All Products' node.\");\n  // FIXED: Return a single object, not an array\n  return { json: { product_id: null, error: \"Missing session_id_to_match\" } };\n}\n\nif (allFoundProducts.length === 0) {\n  console.warn(`Shopify search returned ZERO products for title \"${searchedTitle}\".`);\n} else {\n  console.log(`Shopify search returned ${allFoundProducts.length} product(s). Now filtering...`);\n\n  const lowerCaseTargetSessionId = targetSessionId.toLowerCase();\n\n  for (const product of allFoundProducts) {\n    const shopifyTagsString = product.tags;\n\n    if (shopifyTagsString) {\n      const lowerCaseShopifyTags = shopifyTagsString.toLowerCase();\n      console.log(`- Checking Product ID: ${product.id}. Lowercase Tags: \"${lowerCaseShopifyTags}\". Does it include \"${lowerCaseTargetSessionId}\"?`);\n      if (lowerCaseShopifyTags.includes(lowerCaseTargetSessionId)) {\n        foundProduct = product;\n        console.log(`✅ MATCH FOUND! Using Product ID: ${foundProduct.id}`);\n        break;\n      }\n    } else {\n      console.log(`- Checking Product ID: ${product.id}. No tags found.`);\n    }\n  }\n}\n\nif (foundProduct) {\n  // FIXED: Return a single object, not an array\n  return {\n    json: {\n      product_id: foundProduct.id,\n      collection_id: dataFromPreviousNode.shopify_collection_id,\n      context_searched_title: searchedTitle,\n      context_original_shopify_collection_title: dataFromPreviousNode.original_shopify_collection_title,\n      context_gelato_product_id: dataFromPreviousNode.gelato_product_id_context\n    }\n  };\n} else {\n  console.error(`❌ FAILED: After checking all ${allFoundProducts.length} products, none had the tag \"${targetSessionId}\".`);\n  // FIXED: Return a single object, not an array\n  return {\n    json: {\n      product_id: null,\n      collection_id: dataFromPreviousNode.shopify_collection_id,\n      error: `Product with matching session_id tag '${targetSessionId}' not found.`\n    }\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        640
+      ],
+      "id": "e3887bcb-16b9-4fd1-b2b9-cd24443bf7db",
+      "name": "Extract Shopify Product ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "const shopifyCollectApiResponse = $input.first().json;\nconst contextData = $('Extract Shopify Product ID').item.json; // Data from Code3\n\nif (shopifyCollectApiResponse.collect && shopifyCollectApiResponse.collect.id) {\n  console.log(`✅ SUCCESS: Shopify Product (Shopify ID: ${shopifyCollectApiResponse.collect.product_id}, originally searched as \"${contextData.context_searched_title}\") added to Shopify Collection (Shopify ID: ${shopifyCollectApiResponse.collect.collection_id}, title: \"${contextData.context_original_shopify_collection_title}\"). Gelato Product ID was: ${contextData.context_gelato_product_id}.`);\n} else {\n  console.error(`❌ FAILED or SKIPPED: Could not add product to collection...`);\n}\nreturn [$input.first()]; // Passes the Shopify API response along"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        640
+      ],
+      "id": "b6d5264d-abbf-4a22-bb07-270e01189d82",
+      "name": "Log Collection Link Result"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        120,
+        620
+      ],
+      "id": "f2733d83-8f63-49cf-a899-3e67fd904dfd",
+      "name": "Merge Collections With Products"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        100,
+        80
+      ],
+      "id": "c5583250-7eab-4653-8653-d57b0dd08842",
+      "name": "Loop Product Templates"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        720,
+        620
+      ],
+      "id": "ef1ec6cb-f1d7-47aa-8fec-5f53ba70cb83",
+      "name": "Loop Product Collection Linking"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Update the Code node:\nconst item = $input.item;\n\n// Create a stringified version of the request body\nconst requestBodyString = JSON.stringify({\n  templateId: item.json.gelato_template_id,\n  title: item.json.title,\n  description: item.json.description,\n  isVisibleInTheOnlineStore: true,\n  salesChannels: [\"web\"],\n  variants: item.json.variants,\n  tags: [item.json.petname, item.json.theme_name, \"custom-pet-art\",$('Extract Collection Data').first().json.session_id,$('Extract Collection Data').first().json.customer_name,$('Extract Collection Data').first().json.email  ],\n  productType: \"Custom Pet Artwork\",\n  vendor: \"My Furry Prints\"\n});\n\nreturn {\n  json: {\n    // Keep original data\n    ...item.json,\n    // Add properly stringified request body\n    requestBodyString: requestBodyString\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        100
+      ],
+      "id": "c9cc239a-6329-487e-9c8c-c8298be0882f",
+      "name": "Format Gelato API Request"
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        340
+      ],
+      "id": "44cbb71e-aebf-4d56-8974-e527e4956136",
+      "name": "Wait_for_productCreation",
+      "webhookId": "1a827475-6bba-432c-b4aa-eb9d7a596ace"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "d1ufKupUPdg2xJFP",
+          "mode": "list",
+          "cachedResultName": "Hermes04"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        1100
+      ],
+      "id": "7216da7f-7e73-49c6-af2c-daf740b93c82",
+      "name": "Execute Workflow",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "320bc315-deea-4d87-a7b6-5c2d27f84ca1",
+              "name": "session_id",
+              "value": "={{ $json.session_id }}",
+              "type": "string"
+            },
+            {
+              "id": "b9eb2c98-b46b-4a8c-9f9a-7d0908d297c9",
+              "name": "customer_name",
+              "value": "={{ $json.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "8db2e7ef-f12c-478c-bd2b-eae3cd9e5c1c",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "cca910d1-c893-4860-888d-36ecc2f0b0a7",
+              "name": "petname",
+              "value": "={{ $json.petname }}",
+              "type": "string"
+            },
+            {
+              "id": "b3d85d82-adb6-4f18-a0e9-8d0586afad05",
+              "name": "petKind",
+              "value": "={{ $json.petKind }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        380,
+        1100
+      ],
+      "id": "96034901-c6c1-42a2-82ee-9d356f377cf9",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        1100
+      ],
+      "id": "83ad73cd-598f-4ab5-9c79-c5575f8c3f95",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1160,
+        640
+      ],
+      "id": "f745b8b6-557a-48ff-b70e-004da66a8402",
+      "name": "Wait1",
+      "webhookId": "78eb9ab4-91ee-4e6d-ac00-8026fafe642f"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2040,
+        640
+      ],
+      "id": "4a5ca531-2ba6-48eb-b7c0-9a12316c0224",
+      "name": "Wait2",
+      "webhookId": "9082490b-c24e-4620-8b4a-f9162006d55d"
+    },
+    {
+      "parameters": {
+        "content": "LOOP 1: \nProduct creation in gelato and shopify",
+        "height": 340,
+        "width": 1500,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2bc76086-eb37-4029-813f-e1b521174e3a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "LOOP 2 :\nAdding created products to the respective collection",
+        "height": 360,
+        "width": 1960
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        540,
+        520
+      ],
+      "id": "b8bd8a3b-54f1-40d2-9dbb-c4699a12a530",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Split_Product_Types",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_Product_Types": {
+      "main": [
+        [
+          {
+            "node": "Create_shopify_collection1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_shopify_collection1": {
+      "main": [
+        [
+          {
+            "node": "Map_Gelato_Templates1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get_template_varients1": {
+      "main": [
+        [
+          {
+            "node": "Process_Template_Variants1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process_Template_Variants1": {
+      "main": [
+        [
+          {
+            "node": "Format Gelato API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map_Gelato_Templates1": {
+      "main": [
+        [
+          {
+            "node": "Extract Collection Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add_Product_To_Collection": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create_gelato_products": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchShopifyProduct": {
+      "main": [
+        [
+          {
+            "node": "Extract Shopify Product ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect All Products": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Collection Linking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge Collections With Products",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract Collection Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Product Search Data": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Shopify Product ID": {
+      "main": [
+        [
+          {
+            "node": "Add_Product_To_Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Collection Link Result": {
+      "main": [
+        [
+          {
+            "node": "Loop Product Collection Linking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Collections With Products": {
+      "main": [
+        [
+          {
+            "node": "Collect All Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Product Templates": {
+      "main": [
+        [
+          {
+            "node": "Wait_for_productCreation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get_template_varients1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Product Collection Linking": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Format Product Search Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Gelato API Request": {
+      "main": [
+        [
+          {
+            "node": "Create_gelato_products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait_for_productCreation": {
+      "main": [
+        [
+          {
+            "node": "Merge Collections With Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "SearchShopifyProduct",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Log Collection Link Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "session_id": "685e2e46401841098a0186a4",
+          "customer_name": "Ameena K Zain",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "petGender": "Male"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "fcc9ba2081470a72eea1ac491a0d456e",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "2df655eb3996c47ef658a7c49ce8e12c6f9bdfd6",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 240101,
+          "type": "upload",
+          "etag": "cbe180c2529d708824dc14d20e97d5b4",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 1,
+          "theme_name": "Spa Day Deluxe",
+          "customFilename": "685e2e46401841098a0186a4_prompt1",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt1"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "45422f9e6eeb088d5acd817a7e4bc462",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "56f0b32f45225d78bb9a4a001a21a675f2585260",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 217725,
+          "type": "upload",
+          "etag": "a8c9bae57232ba83700ea6f6927f0e8d",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 2,
+          "theme_name": "Midnight Snack",
+          "customFilename": "685e2e46401841098a0186a4_prompt2",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt2"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "d62093b6d2275ef80f1054215aa2fd44",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "4cc04e404099b34883795c45781edfc4995cc69a",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 231167,
+          "type": "upload",
+          "etag": "cbdd7b08628fe827c37ee24dd77289d0",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 3,
+          "theme_name": "Victorian Portrait",
+          "customFilename": "685e2e46401841098a0186a4_prompt3",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt3"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "70b83025651b7dbfb6491ce227d52f69",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "021b3a9879e50d10cac6692c64c5db4b6e87bcc6",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 232685,
+          "type": "upload",
+          "etag": "1b871aa3b6c46ef6ae1eecd184ed5bce",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 4,
+          "theme_name": "Harry Dogger",
+          "customFilename": "685e2e46401841098a0186a4_prompt4",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt4"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "537ae130f1777f80b3ca4316fe550009",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "f4f1c654e9c032ccf9777f2d66089bf3a06e884a",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 250910,
+          "type": "upload",
+          "etag": "25a6929dc2dab7596011cd720ddb05cb",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 5,
+          "theme_name": "Corporate Pet",
+          "customFilename": "685e2e46401841098a0186a4_prompt5",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt5"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "af56e6a4ae0fb73875f8123ba1acfeea",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "50eb2a13dc238c7a7f06379329da1465e0645421",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 203124,
+          "type": "upload",
+          "etag": "422e9f198504a747af652ac3b212f308",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 6,
+          "theme_name": "Home Yoga",
+          "customFilename": "685e2e46401841098a0186a4_prompt6",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt6"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "f8da2bf7c477435e0fe2e0a23fc98229",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "d8ee99f994b67ef79dccf788cf5fa754f6ddb3a9",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 233890,
+          "type": "upload",
+          "etag": "ee45e6e9801d3817cb336ae2deae9fbf",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 7,
+          "theme_name": "Game Of Thrones",
+          "customFilename": "685e2e46401841098a0186a4_prompt7",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt7"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "b1059a0eb17dcca64ca6641a7019f1c7",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "4f52aae4a83b75b0669a199acac60b375e1483b1",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 234710,
+          "type": "upload",
+          "etag": "fcdd603a6617476e7b0ad36a17677778",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 8,
+          "theme_name": "Morning Coffee",
+          "customFilename": "685e2e46401841098a0186a4_prompt8",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt8"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "009ea57a1ece0289c1c8151da994628a",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "93cb7a375de2278b5e001dc8f64396b765e993e5",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 274604,
+          "type": "upload",
+          "etag": "ad36e714799fbf733d63cd7ccefb3583",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 9,
+          "theme_name": "Masterchef",
+          "customFilename": "685e2e46401841098a0186a4_prompt9",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt9"
+        }
+      },
+      {
+        "json": {
+          "asset_id": "57f15e3f5ccca52e826f059fe7b57e62",
+          "public_id": "685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10",
+          "version": 1751002868,
+          "version_id": "182606ccb881814c5f96a8c901c0f8e8",
+          "signature": "f9ec4d4e47f917b61e51d830a32933badc479ba5",
+          "width": 1024,
+          "height": 1536,
+          "format": "jpg",
+          "resource_type": "image",
+          "created_at": "2025-06-27T05:41:08Z",
+          "tags": [],
+          "bytes": 440099,
+          "type": "upload",
+          "etag": "6594315b41b314e7346ff5cb0410daa0",
+          "placeholder": false,
+          "url": "http://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10.jpg",
+          "secure_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10.jpg",
+          "asset_folder": "685e2e46401841098a0186a4",
+          "display_name": "file",
+          "existing": false,
+          "original_filename": "file",
+          "session_id": "685e2e46401841098a0186a4",
+          "email": "ameena.k@gauger.in",
+          "petname": "Ronny",
+          "petKind": "Cat",
+          "customer_name": "Ameena K Zain",
+          "promptIndex": 10,
+          "theme_name": "Anime Style",
+          "customFilename": "685e2e46401841098a0186a4_prompt10",
+          "original_url": "https://res.cloudinary.com/myfurryprints/image/upload/v1751002868/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10.jpg",
+          "collection_image_url": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10",
+          "transformations": {
+            "clothing": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10",
+            "other": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10",
+            "watermark": "https://res.cloudinary.com/myfurryprints/image/upload/l_MFP-Watermark_k1usnu.png/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10"
+          },
+          "clothing_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/l_Mask3larger_jpm63l,w_4000,fl_cutter/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10",
+          "other_url": "https://res.cloudinary.com/myfurryprints/image/upload/e_upscale/f_webp/c_scale,w_4000/685e2e46401841098a0186a4/685e2e46401841098a0186a4_prompt10"
+        }
+      }
+    ],
+    "Create_shopify_collection1": [
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132420436,
+            "handle": "ronny-spadaydeluxe-8a0186a4",
+            "title": "Ronny Spa Day Deluxe",
+            "updated_at": "2025-06-27T06:41:13+01:00",
+            "body_html": "<p>Custom Spa Day Deluxe artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132420436",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Spa Day Deluxe Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt1.jpg?v=1751002873"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132518740,
+            "handle": "ronny-midnightsnack-8a0186a4",
+            "title": "Ronny Midnight Snack",
+            "updated_at": "2025-06-27T06:41:13+01:00",
+            "body_html": "<p>Custom Midnight Snack artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132518740",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Midnight Snack Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt2.jpg?v=1751002873"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132453204,
+            "handle": "ronny-victorianportrait-8a0186a4",
+            "title": "Ronny Victorian Portrait",
+            "updated_at": "2025-06-27T06:41:13+01:00",
+            "body_html": "<p>Custom Victorian Portrait artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132453204",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Victorian Portrait Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt3.jpg?v=1751002873"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132387668,
+            "handle": "ronny-harrydogger-8a0186a4",
+            "title": "Ronny Harry Dogger",
+            "updated_at": "2025-06-27T06:41:13+01:00",
+            "body_html": "<p>Custom Harry Dogger artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132387668",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Harry Dogger Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt4.jpg?v=1751002873"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132551508,
+            "handle": "ronny-corporatepet-8a0186a4",
+            "title": "Ronny Corporate Pet",
+            "updated_at": "2025-06-27T06:41:13+01:00",
+            "body_html": "<p>Custom Corporate Pet artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132551508",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Corporate Pet Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt5.jpg?v=1751002873"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132682580,
+            "handle": "ronny-homeyoga-8a0186a4",
+            "title": "Ronny Home Yoga",
+            "updated_at": "2025-06-27T06:41:14+01:00",
+            "body_html": "<p>Custom Home Yoga artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:12+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132682580",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Home Yoga Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt6.jpg?v=1751002874"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132617044,
+            "handle": "ronny-gameofthrones-8a0186a4",
+            "title": "Ronny Game Of Thrones",
+            "updated_at": "2025-06-27T06:41:14+01:00",
+            "body_html": "<p>Custom Game Of Thrones artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132617044",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Game Of Thrones Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt7.jpg?v=1751002874"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132649812,
+            "handle": "ronny-morningcoffee-8a0186a4",
+            "title": "Ronny Morning Coffee",
+            "updated_at": "2025-06-27T06:41:14+01:00",
+            "body_html": "<p>Custom Morning Coffee artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132649812",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Morning Coffee Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt8.jpg?v=1751002874"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132584276,
+            "handle": "ronny-masterchef-8a0186a4",
+            "title": "Ronny Masterchef",
+            "updated_at": "2025-06-27T06:41:14+01:00",
+            "body_html": "<p>Custom Masterchef artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132584276",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Masterchef Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt9.jpg?v=1751002873"
+            }
+          }
+        }
+      },
+      {
+        "json": {
+          "custom_collection": {
+            "id": 683132485972,
+            "handle": "ronny-animestyle-8a0186a4",
+            "title": "Ronny Anime Style",
+            "updated_at": "2025-06-27T06:41:14+01:00",
+            "body_html": "<p>Custom Anime Style artwork featuring Ronny. High-quality, frame-worthy art available on various products.</p><p>Created for Ameena K Zain (ameena.k@gauger.in)</p>",
+            "published_at": "2025-06-27T06:41:11+01:00",
+            "sort_order": "best-selling",
+            "template_suffix": null,
+            "published_scope": "web",
+            "admin_graphql_api_id": "gid://shopify/Collection/683132485972",
+            "image": {
+              "created_at": "2025-06-27T06:41:12+01:00",
+              "alt": "Ronny Anime Style Artwork",
+              "width": 1024,
+              "height": 1536,
+              "src": "https://cdn.shopify.com/s/files/1/0961/0831/4964/collections/685e2e46401841098a0186a4_prompt10.jpg?v=1751002874"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "versionId": "0eeaa200-8c90-4238-b8e7-27c0ebd45c19",
+  "activeVersionId": "0eeaa200-8c90-4238-b8e7-27c0ebd45c19",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-06-18T05:05:08.495Z",
+      "createdAt": "2025-06-18T05:05:08.495Z",
+      "role": "workflow:owner",
+      "workflowId": "L6GMKngaWln4M0jb",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2025-11-27T07:27:47.774Z",
+    "createdAt": "2025-11-27T07:27:47.774Z",
+    "versionId": "0eeaa200-8c90-4238-b8e7-27c0ebd45c19",
+    "workflowId": "L6GMKngaWln4M0jb",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -1300,
+          80
+        ],
+        "id": "7818930d-2648-4cb2-b6be-c391236bbb83",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "jsCode": "// In \"Split_Product_Types\" (ID: d1bb84ef-a798-4c7b-8c15-64726de190ca)\nconst items = $input.all(); // Items from \"Merge Customer With Transformations\"\nconst outputItems = [];\n\n// Customer data (item without asset_id, usually from Extract Parameters via the merge)\nconst customerDataItem = items.find(item => item.json && item.json.email && !item.json.asset_id && !item.json.public_id);\n// Image items (items with asset_id/public_id from Transformation node via the merge)\nconst imageItems = items.filter(item => item.json && (item.json.asset_id || item.json.public_id));\n\nif (!customerDataItem) {\n  console.error(\"Split_Product_Types: Customer data not found. Ensure 'Merge Customer With Transformations' is correctly merging.\");\n  return [{ json: { error: \"Customer data item not found.\" } }];\n}\nconst customerData = customerDataItem.json;\n\nif (imageItems.length === 0) {\n  console.warn(\"Split_Product_Types: No image items found to process.\");\n}\n\nimageItems.forEach(item => {\n  const imageJson = item.json; // This is the rich data from the Transformation node\n\n  // promptIndex and theme_name should now be directly available in imageJson\n  const promptIndex = imageJson.promptIndex;\n  const actualThemeName = imageJson.theme_name;\n\n  if (promptIndex === undefined || !actualThemeName) {\n    console.error(`Split_Product_Types: Missing promptIndex or theme_name for image item. Public ID: ${imageJson.public_id}. Skipping.`);\n    return; // Skip this item\n  }\n\n  // Use petname from customerData (more reliable) or fallback to imageJson if it somehow has it\n  const petName = customerData.petname || imageJson.petname || \"Pet\";\n  const sessionId = customerData.session_id || imageJson.session_id || Date.now().toString().slice(-8);\n\n  const baseHandle = `${petName.toLowerCase().replace(/\\s+/g, '-')}-${actualThemeName.toLowerCase().replace(/[^a-z0-9-]+/g, '').replace(/\\s+/g, '-')}`;\n  const sessionSuffix = sessionId.slice(-8);\n  const uniqueHandle = `${baseHandle}-${sessionSuffix}`;\n\n  // Use spread operator to preserve original field order, then override specific fields\n  outputItems.push({\n    json: {\n      // Start with customer data\n      session_id: sessionId,\n      email: customerData.email || imageJson.email,\n      petname: petName,\n      petKind: customerData.petKind || imageJson.petKind,\n      customer_name: customerData.customer_name || imageJson.customer_name,\n      \n      // Include all cloudinary data (preserves original order)\n      ...imageJson,\n      \n      // Override/ensure these specific fields are set correctly\n      promptIndex: promptIndex,\n      collection_name: `${petName} ${actualThemeName}`,\n      collection_handle: uniqueHandle,\n      theme_name: actualThemeName,\n      collection_image_url: imageJson.original_url // Use original URL for collection image\n    }\n  });\n});\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1040,
+          80
+        ],
+        "id": "818110de-4d48-443e-8bef-2ae934cab80a",
+        "name": "Split_Product_Types"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/custom_collections.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"custom_collection\": {\n    \"title\": \"{{ $json.collection_name }}\",\n    \"handle\": \"{{ $json.collection_handle }}\",\n    \"body_html\": \"<p>Custom {{ $json.theme_name }} artwork featuring {{ $json.petname }}. High-quality, frame-worthy art available on various products.</p><p>Created for {{ $json.customer_name }} ({{ $json.email }})</p>\",\n    \"published\": true,\n    \"image\": {\n      \"src\": \"{{ $json.collection_image_url }}\",\n      \"alt\": \"{{ $json.petname }} {{ $json.theme_name }} Artwork\"\n    },\n    \"metafields\": [\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"session_id\",\n        \"value\": \"{{ $json.session_id }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"customer_email\",\n        \"value\": \"{{ $json.email }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"prompt_index\",\n        \"value\": \"{{ $json.promptIndex }}\",\n        \"type\": \"number_integer\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"pet_name\",\n        \"value\": \"{{ $json.petname }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"theme_name\",\n        \"value\": \"{{ $json.theme_name }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"clothing_url\",\n        \"value\": \"{{ $json.clothing_url }}\",\n        \"type\": \"single_line_text_field\"\n      },\n      {\n        \"namespace\": \"custom\",\n        \"key\": \"other_url\",\n        \"value\": \"{{ $json.other_url }}\",\n        \"type\": \"single_line_text_field\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -820,
+          80
+        ],
+        "id": "887f9afe-8fa8-458a-8f9c-4b598e103248",
+        "name": "Create_shopify_collection1",
+        "retryOnFail": false,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://ecommerce.gelatoapis.com/v1/templates/{{ $json.gelato_template_id }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          320,
+          100
+        ],
+        "id": "8b6fc952-798f-4803-898a-5d26b959e596",
+        "name": "Get_template_varients1",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "vWLCrNzEd4XJ6ADx",
+            "name": "Gelato"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Fix the Process_Template_Variants node - position [1600, 160]:\nconst item = $input.item;\n\n// Extract original data\nconst originalData = {\n  shopify_collection_id: item.json.shopify_collection_id || $('Map_Gelato_Templates1').item.json.shopify_collection_id,\n  collection_handle: item.json.collection_handle || $('Map_Gelato_Templates1').item.json.collection_handle,\n  collection_title: item.json.collection_title || $('Map_Gelato_Templates1').item.json.collection_title,\n  session_id: item.json.session_id || $('Map_Gelato_Templates1').item.json.session_id,\n  email: item.json.email || $('Map_Gelato_Templates1').item.json.email,\n  petname: item.json.petname || $('Map_Gelato_Templates1').item.json.petname,\n  customer_name: item.json.customer_name || $('Map_Gelato_Templates1').item.json.customer_name,\n  promptIndex: item.json.promptIndex || $('Map_Gelato_Templates1').item.json.promptIndex,\n  theme_name: item.json.theme_name || $('Map_Gelato_Templates1').item.json.theme_name,\n  clothing_url: item.json.clothing_url || $('Map_Gelato_Templates1').item.json.clothing_url,\n  other_url: item.json.other_url || $('Map_Gelato_Templates1').item.json.other_url,\n  product_type: item.json.product_type || $('Map_Gelato_Templates1').item.json.product_type,\n  image_url: item.json.image_url || $('Map_Gelato_Templates1').item.json.image_url,\n  gelato_template_id: item.json.gelato_template_id || $('Map_Gelato_Templates1').item.json.gelato_template_id,\n  template_name: item.json.template_name || $('Map_Gelato_Templates1').item.json.template_name,\n  product_title: item.json.product_title || $('Map_Gelato_Templates1').item.json.product_title,\n  product_sku: item.json.product_sku || $('Map_Gelato_Templates1').item.json.product_sku\n};\n\n// Get template data from the API response\nconst templateResponse = item.json;\nconst variants = templateResponse.variants || [];\n\nconsole.log(`=== PROCESSING TEMPLATE ${templateResponse.id} ===`);\nconsole.log(`Template Name: ${templateResponse.name || templateResponse.title}`);\nconsole.log(`Total variants found: ${variants.length}`);\nconsole.log(`Image URL: ${originalData.image_url}`);\n\n// If no variants found, return error\nif (variants.length === 0) {\n  return [{\n    json: {\n      error: \"No variants found for template\",\n      template_id: templateResponse.id,\n      gelato_template_id: originalData.gelato_template_id,\n      original_data: originalData\n    }\n  }];\n}\n\n// FIXED: Create ALL variants in a single product request\nconst variantsArray = [];\n\nvariants.forEach((variant, variantIndex) => {\n  console.log(`Processing variant ${variantIndex + 1}/${variants.length}: ${variant.title}`);\n\n  // Get image placeholders for this variant\n  const imagePlaceholders = variant.imagePlaceholders || [];\n\n  // Find the main image placeholder\n  // Prioritize 'front', then names including 'front' or 'image', fallback to the first placeholder\n  const mainImagePlaceholder = imagePlaceholders.find(p =>\n    p.printArea === \"front\"\n  ) || imagePlaceholders.find(p =>\n     p.name && (p.name.toLowerCase().includes(\"front\") || p.name.toLowerCase().includes(\"image\"))\n  ) || imagePlaceholders[0];\n\n\n  if (mainImagePlaceholder) {\n    variantsArray.push({\n      templateVariantId: variant.id,\n      imagePlaceholders: [\n        {\n          name: mainImagePlaceholder.name,\n          fileUrl: originalData.image_url\n        }\n      ]\n    });\n    console.log(`✓ Added variant ${variantIndex + 1}: ${variant.title} with placeholder: ${mainImagePlaceholder.name}`);\n    console.log(`✓ Image URL: ${originalData.image_url}`);\n  } else {\n    console.log(`✗ No image placeholder found for variant: ${variant.title}`);\n    console.log(`Available placeholders:`, imagePlaceholders.map(p => p.name));\n    // Optionally, you might want to skip this variant or return an error\n    // For now, we just log and skip adding this variant to the variantsArray\n  }\n});\n\nconsole.log(`=== FINAL VARIANTS ARRAY ===`);\nconsole.log(`Total variants to create: ${variantsArray.length}`);\nconsole.log(`Variants array:`, JSON.stringify(variantsArray, null, 2));\n\n// CORRECTED: Return a SINGLE item with ALL variants for the product,\n// putting the data needed for the API request body directly at the top level.\nreturn [{\n  json: {\n    // Gelato API Request Body fields\n    templateId: originalData.gelato_template_id, // Directly accessible as item.json.templateId in the next node\n    title: `${originalData.theme_name} - ${originalData.template_name}`, // Directly accessible as item.json.title\n  description: templateResponse.description || `<p>Custom ${originalData.theme_name} artwork featuring ${originalData.petname}. High-quality print-on-demand product perfect for pet lovers.</p>`,\n\n    isVisibleInTheOnlineStore: true,\n    salesChannels: [\"web\"],\n    variants: variantsArray, // Directly accessible as item.json.variants\n    tags: [originalData.petname, originalData.theme_name, \"custom-pet-art\"],\n    productType: \"Custom Pet Artwork\",\n    vendor: \"Gauger Pet Art\",\n\n    // All original data (keep this as well for context in later nodes if needed)\n    ...originalData\n    // Note: templateId, title, description are technically duplicated here\n    // but the ones defined explicitly above will take precedence in the object spread.\n    // This is fine and keeps all originalData available.\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          540,
+          100
+        ],
+        "id": "620aa40c-4ab1-4773-afd9-055aaef4fe6b",
+        "name": "Process_Template_Variants1"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst outputItems = [];\n\n// Your actual Gelato template IDs\nconst gelatoTemplates = {\n  \"clothing\": [\n    { id: \"c0283bcf-5c48-4aac-b1cc-c082081a510f\", name: \"Premium Cotton Unisex Crewneck T-shirt\" }\n  ],\n  \"other\": [\n    { id: \"e711b36f-06d3-4b86-89d8-508d0ceae3f2\", name: \"Samsung Case - Tough\" },\n    // { id: \"1f301028-725e-4ea8-902a-c05176a9ed8b\", name: \"iPhone Case - Tough\" },\n    // { id: \"3d04b8e4-7cc1-4447-971d-c1e43c773863\", name: \"Classic Tote Bag\" },\n    // { id: \"a6f883e1-6e9c-4d8b-bd34-c97066998b4e\", name: \"Magic Ceramic Mug\" },\n    // { id: \"cd792777-3e65-4d97-85f3-5aee74bbc1b4\", name: \"Ceramic Mug with Color Inside\" },\n    // { id: \"d60afa4b-cd4b-4605-a3b8-0db0cd66a3d7\", name: \"Acrylic Print\" },\n    // { id: \"107d744d-df29-46f1-8a82-289f27be9e03\", name: \"Aluminum Print\" },\n    //  { id: \"c0c6fd6c-f1c1-41aa-a0f4-f772640e8cbf\", name: \"Canvas 2cm thick\" },\n    // { id: \"aa2f86bc-ae2b-4a17-9be5-bd22620d37ca\", name: \"Premium Wooden Framed Poster\" }\n  ]\n};\n\n// Function to extract data from collection\nfunction extractDataFromCollection(collection) {\n  console.log('=== EXTRACTING DATA FROM COLLECTION ===');\n  console.log('Collection ID:', collection.id);\n  console.log('Collection Title:', collection.title);\n  console.log('Collection Handle:', collection.handle);\n  console.log('Collection Image URL:', collection.image?.src);\n  \n  // Initialize variables\n  let session_id = \"\";\n  let promptIndex = 1;\n  \n  // FIXED: Extract from Shopify CDN URLs\n  if (collection.image && collection.image.src) {\n    console.log('Attempting to extract from image URL:', collection.image.src);\n    \n    // Updated regex for Shopify CDN URLs - try multiple patterns\n    let urlMatch = collection.image.src.match(/collections\\/([a-f0-9]+)_prompt(\\d+)\\.(png|jpg|jpeg|webp)/);\n    if (!urlMatch) {\n      // Try without collections/ prefix\n      urlMatch = collection.image.src.match(/([a-f0-9]+)_prompt(\\d+)\\.(png|jpg|jpeg|webp)/);\n    }\n    if (!urlMatch) {\n      // Try without file extension\n      urlMatch = collection.image.src.match(/([a-f0-9]+)_prompt(\\d+)/);\n    }\n    \n    if (urlMatch) {\n      session_id = urlMatch[1];\n      promptIndex = parseInt(urlMatch[2]);\n      console.log('✓ Successfully extracted from URL - Session ID:', session_id, 'Prompt Index:', promptIndex);\n    } else {\n      console.log('❌ Failed to extract from image URL');\n    }\n  }\n  \n  // Fallback 1: Extract session_id from collection handle\n  if (!session_id) {\n    const handleMatch = collection.handle.match(/([a-f0-9]+)$/);\n    if (handleMatch) {\n      session_id = handleMatch[1];\n      console.log('✓ Extracted session_id from handle:', session_id);\n    }\n  }\n  \n  // Fallback 2: Map theme names to prompt indices\n  const titleParts = collection.title.split(' ');\n  const petname = titleParts[0];\n  const theme_name = titleParts.slice(1).join(' ');\n  \n  // If we still don't have promptIndex, map from theme\n  if (promptIndex === 1 && theme_name !== \"Spa Day\") {\n    const themeToPromptIndex = {\n      \"Spa Day\": 1,\n      \"Midnight Snack\": 2,\n      \"Barbecue Chef\": 3\n    };\n    \n    promptIndex = themeToPromptIndex[theme_name] || 1;\n    console.log('✓ Mapped theme to prompt index:', theme_name, '->', promptIndex);\n  }\n  \n  // Extract customer info from body_html\n  let customer_name = \"\";\n  let email = \"\";\n  if (collection.body_html) {\n    const bodyMatch = collection.body_html.match(/Created for (.+?) \\((.+?)\\)/);\n    if (bodyMatch) {\n      customer_name = bodyMatch[1];\n      email = bodyMatch[2];\n    }\n  }\n  \n  // Generate the correct URLs using the extracted data\n  const cloudName = \"myfurryprints\";\n  const maskId = \"Mask3larger_jpm63l\";\n  const publicId = `${session_id}/${session_id}_prompt${promptIndex}`;\n  \n  const clothing_url = `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/l_${maskId},w_4000,fl_cutter/${publicId}`;\n  const other_url = `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/f_webp/c_scale,w_4000/${publicId}`;\n  \n  console.log('Final Extracted Data:');\n  console.log('  Session ID:', session_id);\n  console.log('  Prompt Index:', promptIndex);\n  console.log('  Pet Name:', petname);\n  console.log('  Theme Name:', theme_name);\n  console.log('  Customer Name:', customer_name);\n  console.log('  Email:', email);\n  console.log('  Clothing URL:', clothing_url);\n  console.log('  Other URL:', other_url);\n  \n  return {\n    session_id: session_id,\n    email: email,\n    petname: petname,\n    customer_name: customer_name,\n    promptIndex: promptIndex,\n    theme_name: theme_name,\n    clothing_url: clothing_url,\n    other_url: other_url\n  };\n}\n\n// Process each collection response\nitems.forEach((item, itemIndex) => {\n  const collection = item.json.custom_collection;\n  \n  if (collection && collection.id) {\n    console.log(`\\n=== PROCESSING COLLECTION ${itemIndex + 1} ===`);\n    \n    // Extract data from collection\n    const originalData = extractDataFromCollection(collection);\n    \n    // Create clothing products\n    gelatoTemplates.clothing.forEach((template, templateIndex) => {\n      const productData = {\n        json: {\n          // Collection data from Shopify response\n          shopify_collection_id: collection.id,\n          collection_handle: collection.handle,\n          collection_title: collection.title,\n          \n          // Extracted customer data\n          session_id: originalData.session_id,\n          email: originalData.email,\n          petname: originalData.petname,\n          customer_name: originalData.customer_name,\n          promptIndex: originalData.promptIndex,\n          theme_name: originalData.theme_name,\n          \n          // Product data with THEME-SPECIFIC image\n          product_type: \"clothing\",\n          image_url: originalData.clothing_url,\n          gelato_template_id: template.id,\n          template_name: template.name,\n          product_title:  `${originalData.theme_name} - ${template.name}`,\n          product_sku: `${originalData.session_id}-${originalData.promptIndex}-${template.id.slice(-8)}`\n        }\n      };\n      \n      outputItems.push(productData);\n      \n      console.log(`✓ Created clothing product: ${originalData.petname} ${originalData.theme_name} - ${template.name}`);\n      console.log(`  Prompt Index: ${originalData.promptIndex}`);\n      console.log(`  Image URL: ${originalData.clothing_url}`);\n    });\n    \n    // Create other products\n    gelatoTemplates.other.forEach((template, templateIndex) => {\n      const productData = {\n        json: {\n          // Collection data from Shopify response\n          shopify_collection_id: collection.id,\n          collection_handle: collection.handle,\n          collection_title: collection.title,\n          \n          // Extracted customer data\n          session_id: originalData.session_id,\n          email: originalData.email,\n          petname: originalData.petname,\n          customer_name: originalData.customer_name,\n          promptIndex: originalData.promptIndex,\n          theme_name: originalData.theme_name,\n          \n          // Product data with THEME-SPECIFIC image\n          product_type: \"other\",\n          image_url: originalData.other_url,\n          gelato_template_id: template.id,\n          template_name: template.name,\n          product_title: `${originalData.theme_name} - ${template.name}`,\n          product_sku: `${originalData.session_id}-${originalData.promptIndex}-${template.id.slice(-8)}`\n        }\n      };\n      \n      outputItems.push(productData);\n      \n      console.log(`✓ Created other product: ${originalData.petname} ${originalData.theme_name} - ${template.name}`);\n      console.log(`  Prompt Index: ${originalData.promptIndex}`);\n      console.log(`  Image URL: ${originalData.other_url}`);\n    });\n  }\n});\n\nconsole.log('\\n=== FINAL OUTPUT SUMMARY ===');\nconsole.log(`Total products created: ${outputItems.length}`);\n\nreturn outputItems;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -560,
+          80
+        ],
+        "id": "c07094e7-e475-4a69-8bac-178cd5503ce5",
+        "name": "Map_Gelato_Templates1"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://j4zewh-kg.myshopify.com/admin/api/2025-04/collects.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"collect\": {\n    \"product_id\": {{$json[\"product_id\"]}},\n    \"collection_id\": {{$json[\"collection_id\"]}}\n  }\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1820,
+          640
+        ],
+        "id": "8f91f1d3-ec35-46bb-a9c9-ae29449d4450",
+        "name": "Add_Product_To_Collection",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://ecommerce.gelatoapis.com/v1/stores/ce82562a-d6f5-47ab-8c59-632770661164/products:create-from-template",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ $json.requestBodyString }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          940,
+          100
+        ],
+        "id": "95fa5596-6597-49b1-ad5b-b9b3fa2cbf04",
+        "name": "Create_gelato_products",
+        "retryOnFail": true,
+        "maxTries": 2,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "vWLCrNzEd4XJ6ADx",
+            "name": "Gelato"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "url": "=https://j4zewh-kg.myshopify.com/admin/api/2023-10/products.json",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "title",
+                "value": "={{ $json.product_title }}"
+              },
+              {
+                "name": "session_id",
+                "value": "={{ $json.session_id_to_match }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1400,
+          640
+        ],
+        "id": "b1e1d80c-b1ec-48d2-9534-11afd181abb6",
+        "name": "SearchShopifyProduct",
+        "alwaysOutputData": false,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "878XnnwYx10R4wXG",
+            "name": "Shopify"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "\n    // Node: Collect All Products\n    const allItems = $input.all();\n    const shopifyCollectionsMap = new Map(); // Key: \"PetName ThemeName\", Value: { collection_id, handle, title }\n    const productsToProcess = [];\n\n    console.log(`Collect All Products - Received ${allItems.length} items from Merge1.`);\n\n    // --- First Pass: Populate shopifyCollectionsMap from Shopify Collection Items ---\n    allItems.forEach((item, index) => {\n      // Shopify Collection items have collection_id and their title is \"PetName ThemeName\"\n      if (item.json.collection_id && item.json.title && typeof item.json.title === 'string' && !item.json.id) { // !item.json.id helps distinguish from Gelato product\n        const shopifyCollectionTitleKey = item.json.title; // e.g., \"moon Spa Day\"\n        if (!shopifyCollectionsMap.has(shopifyCollectionTitleKey)) {\n          shopifyCollectionsMap.set(shopifyCollectionTitleKey, {\n            collection_id: item.json.collection_id,\n            collection_handle: item.json.handle,\n            original_shopify_collection_title: item.json.title\n          });\n          console.log(`Mapped Shopify Collection: \"${shopifyCollectionTitleKey}\" -> ID: ${item.json.collection_id}`);\n        }\n      }\n    });\n\n    if (shopifyCollectionsMap.size === 0) {\n      console.warn(\"No Shopify collections were identified and mapped from Merge1. Downstream processing will likely fail.\");\n    } else {\n      console.log(`Total Shopify collections mapped: ${shopifyCollectionsMap.size}`);\n      console.log(\"Shopify Collections Map Keys:\", Array.from(shopifyCollectionsMap.keys()));\n    }\n\n    // --- Second Pass: Match Gelato products to Shopify collections ---\n    allItems.forEach((item, index) => {\n      // Gelato product items have an 'id' (Gelato product ID) and 'tags'\n      if (item.json.id && item.json.tags && Array.isArray(item.json.tags) && item.json.tags.length >= 2 && item.json.title && item.json.title.includes(' - ')) {\n        const gelatoProductTitle = item.json.title; // Full title like \"moon Spa Day - Custom Apparel\"\n        const petname = item.json.tags[0];       // e.g., \"moon\"\n        const themeName = item.json.tags[1];     // e.g., \"Spa Day\"\n        \n        const shopifyCollectionTitleKey = `${petname} ${themeName}`; // Construct the key, e.g., \"moon Spa Day\"\n        \n        const collectionData = shopifyCollectionsMap.get(shopifyCollectionTitleKey);\n\n        if (collectionData) {\n          // --- NEW CODE START ---\n  // Find the session_id from the tags. Assumes it's a long hex string.\n  // This is more robust than assuming its position in the array.\n  //const session_id_tag = item.json.tags.find(tag => /^[a-z0-9]{10,}$/i.test(tag));\n const session_id_tag = $input.first().json.tags[3]\n          \n  if (!session_id_tag) {\n      console.warn(`Could not find a session_id tag for product: \"${gelatoProductTitle}\". Skipping.`);\n      // using 'continue' is not allowed in forEach, so we just return to skip this iteration.\n      return; \n  }\n\n          productsToProcess.push({\n            json: {\n              // This is the full Gelato product title, which should also be the Shopify product title after sync\n              product_title_to_search_in_shopify: gelatoProductTitle, \n              \n              // Shopify collection details for adding the product later\n              shopify_collection_id: collectionData.collection_id,\n              shopify_collection_handle: collectionData.collection_handle,\n              shopify_collection_original_title: collectionData.original_shopify_collection_title,\n// We are now confident this is the correct session_id tag\n      session_id_to_match: session_id_tag,\n              // For debugging or context\n              gelato_product_id: item.json.id,\n              derived_petname: petname,\n              derived_themename: themeName,\n              // gelato_product_details: item.json // Uncomment if you need the whole Gelato item\n            }\n          });\n          console.log(`Product \"${gelatoProductTitle}\" (Gelato ID: ${item.json.id}) will be searched in Shopify and added to collection \"${shopifyCollectionTitleKey}\" (Shopify Collection ID: ${collectionData.collection_id})`);\n        } else {\n          console.warn(`No Shopify collection found for Gelato product: \"${gelatoProductTitle}\" (using key: \"${shopifyCollectionTitleKey}\" from tags). This product will be skipped.`);\n        }\n      }\n    });\n    \n    if (productsToProcess.length === 0) {\n      console.warn(\"No Gelato products were successfully matched to Shopify collections. Check product titles/tags and collection titles alignment.\");\n    }\n\n    console.log(`Total products to process (search in Shopify and add to collection): ${productsToProcess.length}`);\n    return productsToProcess;\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          340,
+          620
+        ],
+        "id": "9826b4ff-eaa3-456a-9739-9ffd1c2629d9",
+        "name": "Collect All Products"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "eedd32cb-3722-4169-ae9e-b5e0b7114fd9",
+                "name": "collection_id",
+                "value": "={{ $json.custom_collection.id }}",
+                "type": "number"
+              },
+              {
+                "id": "0ea0ee40-d5e9-4980-ad45-35f941a86cb5",
+                "name": "handle",
+                "value": "={{ $json.custom_collection.handle }}",
+                "type": "string"
+              },
+              {
+                "id": "30fe9f3f-53af-4c85-bd1b-e2f489aefefa",
+                "name": "title",
+                "value": "={{ $json.custom_collection.title }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -220,
+          640
+        ],
+        "id": "7637b8d9-62ee-4965-9638-4dc884538703",
+        "name": "Edit Fields"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -340,
+          80
+        ],
+        "id": "d519582f-528e-4c9d-9826-864a58791d59",
+        "name": "Extract Collection Data"
+      },
+      {
+        "parameters": {
+          "amount": 10
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          1160,
+          100
+        ],
+        "id": "9f6a3a92-c1ed-4c49-90af-1da78616a26f",
+        "name": "Wait",
+        "webhookId": "bc09b210-2685-4015-9f1b-7969fe49a94e"
+      },
+      {
+        "parameters": {
+          "jsCode": "const currentProductData = $input.item.json;\nreturn {\n  json: {\n    product_title: currentProductData.product_title_to_search_in_shopify,\n    shopify_collection_id: currentProductData.shopify_collection_id,\n    \n    // --- ADD THIS LINE ---\n    session_id_to_match: currentProductData.session_id_to_match, // Pass it through\n\n    // Context fields (no changes needed here)\n    original_search_title: currentProductData.product_title_to_search_in_shopify,\n    original_shopify_collection_title: currentProductData.shopify_collection_original_title,\n    gelato_product_id_context: currentProductData.gelato_product_id\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          940,
+          640
+        ],
+        "id": "3f3818f6-a42b-4fcf-b668-5e05d8c8d575",
+        "name": "Format Product Search Data"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "// Get the API response from SearchShopifyProduct\nconst shopifyApiResponse = $input.item.json;\n\n// Get the data sent *into* SearchShopifyProduct\nconst dataFromPreviousNode = $('Format Product Search Data').item.json;\n\nlet foundProduct = null;\nconst allFoundProducts = shopifyApiResponse.products || [];\nconst targetSessionId = dataFromPreviousNode.session_id_to_match;\nconst searchedTitle = dataFromPreviousNode.product_title;\n\nconsole.log(`--- Starting Product ID Extraction ---`);\nconsole.log(`Target Session ID: \"${targetSessionId}\"`);\nconsole.log(`Searching for product title: \"${searchedTitle}\"`);\n\nif (!targetSessionId) {\n  console.error(\"CRITICAL ERROR: No session_id was passed to this node. Cannot perform matching. Check the 'Collect All Products' node.\");\n  // FIXED: Return a single object, not an array\n  return { json: { product_id: null, error: \"Missing session_id_to_match\" } };\n}\n\nif (allFoundProducts.length === 0) {\n  console.warn(`Shopify search returned ZERO products for title \"${searchedTitle}\".`);\n} else {\n  console.log(`Shopify search returned ${allFoundProducts.length} product(s). Now filtering...`);\n\n  const lowerCaseTargetSessionId = targetSessionId.toLowerCase();\n\n  for (const product of allFoundProducts) {\n    const shopifyTagsString = product.tags;\n\n    if (shopifyTagsString) {\n      const lowerCaseShopifyTags = shopifyTagsString.toLowerCase();\n      console.log(`- Checking Product ID: ${product.id}. Lowercase Tags: \"${lowerCaseShopifyTags}\". Does it include \"${lowerCaseTargetSessionId}\"?`);\n      if (lowerCaseShopifyTags.includes(lowerCaseTargetSessionId)) {\n        foundProduct = product;\n        console.log(`✅ MATCH FOUND! Using Product ID: ${foundProduct.id}`);\n        break;\n      }\n    } else {\n      console.log(`- Checking Product ID: ${product.id}. No tags found.`);\n    }\n  }\n}\n\nif (foundProduct) {\n  // FIXED: Return a single object, not an array\n  return {\n    json: {\n      product_id: foundProduct.id,\n      collection_id: dataFromPreviousNode.shopify_collection_id,\n      context_searched_title: searchedTitle,\n      context_original_shopify_collection_title: dataFromPreviousNode.original_shopify_collection_title,\n      context_gelato_product_id: dataFromPreviousNode.gelato_product_id_context\n    }\n  };\n} else {\n  console.error(`❌ FAILED: After checking all ${allFoundProducts.length} products, none had the tag \"${targetSessionId}\".`);\n  // FIXED: Return a single object, not an array\n  return {\n    json: {\n      product_id: null,\n      collection_id: dataFromPreviousNode.shopify_collection_id,\n      error: `Product with matching session_id tag '${targetSessionId}' not found.`\n    }\n  };\n}"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1600,
+          640
+        ],
+        "id": "e3887bcb-16b9-4fd1-b2b9-cd24443bf7db",
+        "name": "Extract Shopify Product ID"
+      },
+      {
+        "parameters": {
+          "jsCode": "const shopifyCollectApiResponse = $input.first().json;\nconst contextData = $('Extract Shopify Product ID').item.json; // Data from Code3\n\nif (shopifyCollectApiResponse.collect && shopifyCollectApiResponse.collect.id) {\n  console.log(`✅ SUCCESS: Shopify Product (Shopify ID: ${shopifyCollectApiResponse.collect.product_id}, originally searched as \"${contextData.context_searched_title}\") added to Shopify Collection (Shopify ID: ${shopifyCollectApiResponse.collect.collection_id}, title: \"${contextData.context_original_shopify_collection_title}\"). Gelato Product ID was: ${contextData.context_gelato_product_id}.`);\n} else {\n  console.error(`❌ FAILED or SKIPPED: Could not add product to collection...`);\n}\nreturn [$input.first()]; // Passes the Shopify API response along"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2280,
+          640
+        ],
+        "id": "b6d5264d-abbf-4a22-bb07-270e01189d82",
+        "name": "Log Collection Link Result"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.1,
+        "position": [
+          120,
+          620
+        ],
+        "id": "f2733d83-8f63-49cf-a899-3e67fd904dfd",
+        "name": "Merge Collections With Products"
+      },
+      {
+        "parameters": {
+          "options": {
+            "reset": false
+          }
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          100,
+          80
+        ],
+        "id": "c5583250-7eab-4653-8653-d57b0dd08842",
+        "name": "Loop Product Templates"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          720,
+          620
+        ],
+        "id": "ef1ec6cb-f1d7-47aa-8fec-5f53ba70cb83",
+        "name": "Loop Product Collection Linking"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Update the Code node:\nconst item = $input.item;\n\n// Create a stringified version of the request body\nconst requestBodyString = JSON.stringify({\n  templateId: item.json.gelato_template_id,\n  title: item.json.title,\n  description: item.json.description,\n  isVisibleInTheOnlineStore: true,\n  salesChannels: [\"web\"],\n  variants: item.json.variants,\n  tags: [item.json.petname, item.json.theme_name, \"custom-pet-art\",$('Extract Collection Data').first().json.session_id,$('Extract Collection Data').first().json.customer_name,$('Extract Collection Data').first().json.email  ],\n  productType: \"Custom Pet Artwork\",\n  vendor: \"My Furry Prints\"\n});\n\nreturn {\n  json: {\n    // Keep original data\n    ...item.json,\n    // Add properly stringified request body\n    requestBodyString: requestBodyString\n  }\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          740,
+          100
+        ],
+        "id": "c9cc239a-6329-487e-9c8c-c8298be0882f",
+        "name": "Format Gelato API Request"
+      },
+      {
+        "parameters": {
+          "amount": 10,
+          "unit": "minutes"
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          300,
+          340
+        ],
+        "id": "44cbb71e-aebf-4d56-8974-e527e4956136",
+        "name": "Wait_for_productCreation",
+        "webhookId": "1a827475-6bba-432c-b4aa-eb9d7a596ace"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "d1ufKupUPdg2xJFP",
+            "mode": "list",
+            "cachedResultName": "Hermes04"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          900,
+          1100
+        ],
+        "id": "7216da7f-7e73-49c6-af2c-daf740b93c82",
+        "name": "Execute Workflow",
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "320bc315-deea-4d87-a7b6-5c2d27f84ca1",
+                "name": "session_id",
+                "value": "={{ $json.session_id }}",
+                "type": "string"
+              },
+              {
+                "id": "b9eb2c98-b46b-4a8c-9f9a-7d0908d297c9",
+                "name": "customer_name",
+                "value": "={{ $json.customer_name }}",
+                "type": "string"
+              },
+              {
+                "id": "8db2e7ef-f12c-478c-bd2b-eae3cd9e5c1c",
+                "name": "email",
+                "value": "={{ $json.email }}",
+                "type": "string"
+              },
+              {
+                "id": "cca910d1-c893-4860-888d-36ecc2f0b0a7",
+                "name": "petname",
+                "value": "={{ $json.petname }}",
+                "type": "string"
+              },
+              {
+                "id": "b3d85d82-adb6-4f18-a0e9-8d0586afad05",
+                "name": "petKind",
+                "value": "={{ $json.petKind }}",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          380,
+          1100
+        ],
+        "id": "96034901-c6c1-42a2-82ee-9d356f377cf9",
+        "name": "Edit Fields1"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          640,
+          1100
+        ],
+        "id": "83ad73cd-598f-4ab5-9c79-c5575f8c3f95",
+        "name": "Merge"
+      },
+      {
+        "parameters": {
+          "amount": 2
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          1160,
+          640
+        ],
+        "id": "f745b8b6-557a-48ff-b70e-004da66a8402",
+        "name": "Wait1",
+        "webhookId": "78eb9ab4-91ee-4e6d-ac00-8026fafe642f"
+      },
+      {
+        "parameters": {
+          "amount": 2
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          2040,
+          640
+        ],
+        "id": "4a5ca531-2ba6-48eb-b7c0-9a12316c0224",
+        "name": "Wait2",
+        "webhookId": "9082490b-c24e-4620-8b4a-f9162006d55d"
+      },
+      {
+        "parameters": {
+          "content": "LOOP 1: \nProduct creation in gelato and shopify",
+          "height": 340,
+          "width": 1500,
+          "color": 4
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "2bc76086-eb37-4029-813f-e1b521174e3a",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "content": "LOOP 2 :\nAdding created products to the respective collection",
+          "height": 360,
+          "width": 1960
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          540,
+          520
+        ],
+        "id": "b8bd8a3b-54f1-40d2-9dbb-c4699a12a530",
+        "name": "Sticky Note1"
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Split_Product_Types",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Edit Fields1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split_Product_Types": {
+        "main": [
+          [
+            {
+              "node": "Create_shopify_collection1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_shopify_collection1": {
+        "main": [
+          [
+            {
+              "node": "Map_Gelato_Templates1",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Get_template_varients1": {
+        "main": [
+          [
+            {
+              "node": "Process_Template_Variants1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process_Template_Variants1": {
+        "main": [
+          [
+            {
+              "node": "Format Gelato API Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Map_Gelato_Templates1": {
+        "main": [
+          [
+            {
+              "node": "Extract Collection Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add_Product_To_Collection": {
+        "main": [
+          [
+            {
+              "node": "Wait2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create_gelato_products": {
+        "main": [
+          [
+            {
+              "node": "Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SearchShopifyProduct": {
+        "main": [
+          [
+            {
+              "node": "Extract Shopify Product ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Collect All Products": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Collection Linking",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "Merge Collections With Products",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Extract Collection Data": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Product Search Data": {
+        "main": [
+          [
+            {
+              "node": "Wait1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Shopify Product ID": {
+        "main": [
+          [
+            {
+              "node": "Add_Product_To_Collection",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Collection Link Result": {
+        "main": [
+          [
+            {
+              "node": "Loop Product Collection Linking",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Collections With Products": {
+        "main": [
+          [
+            {
+              "node": "Collect All Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Product Templates": {
+        "main": [
+          [
+            {
+              "node": "Wait_for_productCreation",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Get_template_varients1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Product Collection Linking": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Format Product Search Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Gelato API Request": {
+        "main": [
+          [
+            {
+              "node": "Create_gelato_products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait_for_productCreation": {
+        "main": [
+          [
+            {
+              "node": "Merge Collections With Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields1": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Execute Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait1": {
+        "main": [
+          [
+            {
+              "node": "SearchShopifyProduct",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wait2": {
+        "main": [
+          [
+            {
+              "node": "Log Collection Link Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system migration",
+    "name": null,
+    "description": null,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-06-30T11:43:40.368Z",
+        "id": 40,
+        "workflowId": "L6GMKngaWln4M0jb",
+        "versionId": "0eeaa200-8c90-4238-b8e7-27c0ebd45c19",
+        "event": "activated",
+        "userId": null
+      }
+    ]
+  }
+}
