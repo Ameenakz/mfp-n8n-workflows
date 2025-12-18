@@ -1,0 +1,355 @@
+{
+  "updatedAt": "2025-12-18T15:49:34.857Z",
+  "createdAt": "2025-10-28T08:07:34.046Z",
+  "id": "e3A2YjP2DNbrfl9C",
+  "name": "Master Error Handler",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "sendTo": "ameena.k@gauger.in, iamdanielsuresh@gmail.com, muhasin23@gmail.com",
+        "subject": "=⚠️ Critical n8n Workflow Error at {{ $json.workflow.name }}",
+        "emailType": "text",
+        "message": "=Hi team,\n\nWe have encountered a critical error in one of our workflow and could not complete its execution. Please investigate immediately. \nWorkflow name : {{ $json.workflow.name }}\nFailing Node : {{ $json.execution.lastNodeExecuted }}\nNode type : {{ $json.execution.mode }} node\nError message  : {{$json.execution.error.message }}\nError details : {{ $json.execution.error.cause }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        704,
+        560
+      ],
+      "id": "4ef9966d-dad9-4935-9e39-069a1d859577",
+      "name": "Send a message",
+      "webhookId": "935ac528-f545-4e80-b0e3-d529f36ba94d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FsfUD7AAk7DNnm5t",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        112
+      ],
+      "id": "29b18e39-5c14-476a-a788-60069d1d4392",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The root object of the error payload from the trigger\nconst executionData = $input.item.json;\n\n// Correctly navigate to the error context, now including '.execution'\nconst errorContext = executionData.execution.error.errorResponse.context;\nlet sessionId = null;\n\n// This part of the logic remains the same, as it was correct\nif (errorContext && errorContext.request && errorContext.request.body) {\n  const requestBody = errorContext.request.body;\n\n  if (requestBody.custom_collection && requestBody.custom_collection.metafields) {\n    const sessionIdMetafield = requestBody.custom_collection.metafields.find(\n      (mf) => mf.key === 'session_id'\n    );\n\n    if (sessionIdMetafield) {\n      sessionId = sessionIdMetafield.value;\n    }\n  }\n}\n\nif (!sessionId) {\n  throw new Error(\"Could not extract session_id from the failed node's request body.\");\n}\n\n// Return the final, cleaned-up data for the next steps\nreturn {\n  json: {\n    sessionId: sessionId,\n    // Correctly reference the workflow name from the top-level object\n    failedWorkflow: executionData.workflow.name,\n    // Correctly reference the failing node's name from the error object\n    failedNode: executionData.execution.error.node.name,\n    // Get the more descriptive error message\n    errorMessage: executionData.execution.error.description,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        112
+      ],
+      "id": "5a98e218-9be1-4a6f-98b0-3669c70e01fc",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "query findProductsByTag($query: String!) {\n  products(first: 250, query: $query) {\n    edges {\n      node {\n        id\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"query\": \"tag:69283be4c1a8ea346c09c845\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        48,
+        112
+      ],
+      "id": "7bbda1fc-f448-4cab-8fde-688e681ee064",
+      "name": "find products",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        416,
+        112
+      ],
+      "id": "fc43831f-7593-4f43-a3a6-7fafd986dc0a",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "mutation productDelete($id: ID!) {\n  productDelete(input: {id: $id}) {\n    deletedProductId\n    userErrors {\n      field\n      message\n    }\n  }\n}",
+        "variables": "={\n  \"id\": \"{{ $json.node.id }}\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        272
+      ],
+      "id": "b4101da2-fb5f-41dd-9362-b5ce13ef1010",
+      "name": "delete products",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "query findCollectionsByQuery($query: String!) {\n  collections(first: 50, query: $query) {\n    edges {\n      node {\n        id\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"query\": \"handle:*{{ $json.sessionId.slice(-8) }}\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        592,
+        -80
+      ],
+      "id": "9011aea7-d8d1-4a59-b753-27e935f4873e",
+      "name": "find collections",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "https://j4zewh-kg.myshopify.com/admin/api/2025-04/graphql.json",
+        "query": "mutation collectionDelete($id: ID!) {\n  collectionDelete(input: {id: $id}) {\n    deletedCollectionId\n    userErrors {\n      field\n      message\n    }\n  }\n}",
+        "variables": "={\n  \"id\": \"{{ $json.node.id }}\"\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        -80
+      ],
+      "id": "151c083c-4f97-4577-ab10-6ef5fc4697eb",
+      "name": "delete collection",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "878XnnwYx10R4wXG",
+          "name": "Shopify"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        384
+      ],
+      "id": "2dc88927-1cdf-4a12-b05e-ac74382c6f33",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The input is the full result from the Shopify node.\nconst shopifyResult = $input.item.json;\n\n// We navigate into the nested structure and get just the array we want to loop over.\nconst productEdgesArray = shopifyResult.data.products.edges;\n\n// n8n's Code node needs to return an array of items.\n// We return the array we extracted, so the next node receives a simple list.\nreturn productEdgesArray;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        112
+      ],
+      "id": "d5d27c3f-f2f2-4d9b-8dd6-0028a677a5ec",
+      "name": "extract product id"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        []
+      ]
+    },
+    "find products": {
+      "main": [
+        [
+          {
+            "node": "extract product id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "find collections",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "delete products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete products": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "find collections": {
+      "main": [
+        [
+          {
+            "node": "delete collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "find products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract product id": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "daa1a923-a407-497d-b215-02f31e0b3a0c",
+  "activeVersionId": null,
+  "versionCounter": 7,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-10-28T08:07:34.046Z",
+      "createdAt": "2025-10-28T08:07:34.046Z",
+      "role": "workflow:owner",
+      "workflowId": "e3A2YjP2DNbrfl9C",
+      "projectId": "lLSHos7ohHn7AjNm",
+      "project": {
+        "updatedAt": "2025-06-14T17:25:02.061Z",
+        "createdAt": "2025-06-14T17:13:49.092Z",
+        "id": "lLSHos7ohHn7AjNm",
+        "name": "Muhasin Rashid <muhasin@gauger.in>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-06-14T17:13:49.092Z",
+            "createdAt": "2025-06-14T17:13:49.092Z",
+            "userId": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+            "projectId": "lLSHos7ohHn7AjNm",
+            "user": {
+              "updatedAt": "2025-12-18T05:00:03.582Z",
+              "createdAt": "2025-06-14T17:13:45.907Z",
+              "id": "f88f8c62-813a-499e-aaee-b5f4da43c5a7",
+              "email": "muhasin@gauger.in",
+              "firstName": "Muhasin",
+              "lastName": "Rashid",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-06-14T17:25:40.417Z",
+                "personalization_survey_n8n_version": "1.97.1",
+                "automationGoalDevops": [
+                  "other"
+                ],
+                "automationGoalDevopsOther": "Product",
+                "companyType": "ecommerce",
+                "role": "engineering"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "JsDBWbsoYaKBkGmW",
+                "userActivatedAt": 1758182279933,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1752395252283
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-12-18",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-12-18T15:48:05.869Z",
+      "createdAt": "2025-12-18T15:48:05.869Z",
+      "id": "PKKqSH66xvEj4WGC",
+      "name": "tools"
+    }
+  ],
+  "activeVersion": null
+}
